@@ -303,13 +303,18 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.1</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.2</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
 
 <div class="card">
   <div class="card-title">STEP 1 ── 画像を選択（複数可）</div>
+  <div class="pattern-toggle">
+    <button class="pattern-btn active" id="btnAuto"  onclick="setPattern('auto')">🔄 自動判定<br><span style="font-size:10px;opacity:.7;">16:9→P2 / その他→P1</span></button>
+    <button class="pattern-btn"        id="btnP2"    onclick="setPattern('p2')">詳細画面<br><span style="font-size:10px;opacity:.7;">パターン2（固定）</span></button>
+    <button class="pattern-btn"        id="btnP1"    onclick="setPattern('p1')">切り抜きカード<br><span style="font-size:10px;opacity:.7;">パターン1（固定）</span></button>
+  </div>
   <div class="upload-btns">
     <label class="upload-btn">
       <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(event)">
@@ -388,7 +393,15 @@ textarea::placeholder { color: #888888; }
   const GOD_RGB = {};
   for (const [name, hexes] of Object.entries(GODS)) GOD_RGB[name] = hexes.map(hexToRgb);
 
-  let results = []; // { canvas, winner, scoreDiff }
+  let results = [];
+  let patternMode = 'auto'; // 'auto' | 'p2' | 'p1'
+
+  function setPattern(mode) {
+    patternMode = mode;
+    document.getElementById('btnAuto').classList.toggle('active', mode === 'auto');
+    document.getElementById('btnP2').classList.toggle('active',   mode === 'p2');
+    document.getElementById('btnP1').classList.toggle('active',   mode === 'p1');
+  } // { canvas, winner, scoreDiff }
 
   /* ============================================================
      画像読み込み・一括処理
@@ -422,8 +435,10 @@ textarea::placeholder { color: #888888; }
         const img = new Image();
         img.onload = () => {
           // アイコン領域をクロップ（パターン2優先）
-          const crop = detectPattern(img) === 'p2' ? CROP_P2 : CROP_P1;
-          const canvas = cropToCanvas(img, crop);
+          const cropKey = patternMode === 'auto'
+            ? (detectPattern(img) === 'p2' ? CROP_P2 : CROP_P1)
+            : (patternMode === 'p2' ? CROP_P2 : CROP_P1);
+          const canvas = cropToCanvas(img, cropKey);
           const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
           const { winner, sorted, scoreDiff } = identifyGod(imageData);
           resolve({ index, canvas, winner, scoreDiff, sorted });
