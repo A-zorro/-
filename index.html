@@ -241,6 +241,32 @@ textarea::placeholder { color: #888888; }
   color: #888888;
 }
 
+/* ── パターン切り替えトグル ── */
+.pattern-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pattern-btn {
+  flex: 1;
+  padding: 8px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1.5px solid #444444;
+  background: transparent;
+  color: #888888;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+.pattern-btn.active {
+  border-color: #7eb8d4;
+  color: #7eb8d4;
+  background: rgba(126,184,212,0.08);
+}
+
 /* ── モーダル ── */
 .modal-overlay {
   display: none;
