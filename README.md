@@ -116,9 +116,12 @@ iPhoneのショートカットアプリで動作します。
 
 ## ツール2：神様識別アプリ
 
-Safari で以下のURLにアクセスして使用します。
+Safari で以下のURLにアクセスして使用します。  
+（`your-username` の部分をご自身のGitHubユーザー名に置き換えてください）
 
-**https://a-zorro.github.io/-/**
+```
+https://your-username.github.io/-/
+```
 
 ### 使い方
 
