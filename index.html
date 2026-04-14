@@ -10,13 +10,13 @@
 
 ```
 :root {
-  --bg:        #0d0f14;
-  --surface:   #161922;
-  --surface2:  #1c2030;
-  --border:    #2a2f3e;
-  --accent:    #7eb8f7;
-  --text:      #e8eaf0;
-  --text-dim:  #6b7280;
+  --bg:        #1e1e1e;
+  --surface:   #2a2a2a;
+  --surface2:  #333333;
+  --border:    #444444;
+  --accent:    #7eb8d4;
+  --text:      #e8e8e8;
+  --text-dim:  #888888;
   --danger:    #f87171;
   --success:   #34d399;
   --warning:   #fbbf24;
@@ -38,7 +38,7 @@ body {
   font-family: 'Rajdhani', sans-serif;
   font-size: 24px;
   letter-spacing: 0.08em;
-  color: var(--accent);
+  color: #ffffff;
 }
 .header p { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
 
@@ -202,7 +202,7 @@ body {
 .copy-preview {
   margin-top: 12px;
   padding: 12px;
-  background: #0d0f14;
+  background: #272727;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 12px;
@@ -211,7 +211,21 @@ body {
   color: var(--text-dim);
 }
 
-/* ── 処理中 ── */
+/* ── テキストエリア ── */
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: #272727;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+  min-height: 140px;
+}
+textarea::placeholder { color: var(--text-dim); }
 .processing {
   text-align: center;
   padding: 20px;
@@ -238,22 +252,6 @@ body {
   background: rgba(251,191,36,0.08);
   font-weight: 700;
 }
-
-/* ── テキストエリア ── */
-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  background: #0d0f14;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 12px;
-  line-height: 1.7;
-  resize: vertical;
-  min-height: 140px;
-}
-textarea::placeholder { color: var(--text-dim); }
 
 /* ── モーダル ── */
 .modal-overlay {
