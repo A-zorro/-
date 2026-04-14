@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>神様アイコン識別ツール｜カオゼロ</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+```
+:root {
+  --bg:        #0d0f14;
+  --surface:   #161922;
+  --surface2:  #1c2030;
+  --border:    #2a2f3e;
+  --accent:    #7eb8f7;
+  --text:      #e8eaf0;
+  --text-dim:  #6b7280;
+  --danger:    #f87171;
+  --success:   #34d399;
+  --warning:   #fbbf24;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  min-height: 100vh;
+  padding: 16px 14px 40px;
+}
+
+/* ── Header ── */
+.header { text-align: center; padding: 18px 0 20px; }
+.header h1 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.header p { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ── Upload ── */
+.upload-btns { display: flex; gap: 10px; }
+.upload-btn {
+  flex: 1;
+  position: relative;
+  min-height: 64px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+}
+.upload-btn:hover { border-color: var(--accent); color: var(--accent); }
+.upload-btn input[type=file] {
+  position: absolute; inset: 0; opacity: 0;
+  cursor: pointer; width: 100%; height: 100%;
+}
+.upload-btn-icon { font-size: 22px; }
+.upload-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ── 結果リスト ── */
+#resultSection { display: none; }
+
+.result-list { display: flex; flex-direction: column; gap: 10px; }
+
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--surface2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.result-item.low-conf { border-color: rgba(251,191,36,0.4); }
+
+.item-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  width: 24px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.item-preview {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  image-rendering: pixelated;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.item-body { flex: 1; min-width: 0; }
+
+.item-select {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+/* 神様カラー適用 */
+.god-ディアロス { border-color: #F3BA88 !important; color: #F3BA88 !important; }
+.god-セクレド   { border-color: #78DEC1 !important; color: #78DEC1 !important; }
+.god-キルケン   { border-color: #E5B1FA !important; color: #E5B1FA !important; }
+.god-ニヒルム   { border-color: #86CDF4 !important; color: #86CDF4 !important; }
+.god-ヴィトル   { border-color: #AB9180 !important; color: #AB9180 !important; }
+.god-通常ヒラメキ { border-color: #fbbf24 !important; color: #fbbf24 !important; }
+
+.item-conf {
+  font-size: 10px;
+  margin-top: 4px;
+  color: var(--text-dim);
+}
+.item-conf.warn { color: var(--warning); }
+
+/* ── ボタン ── */
+.btn {
+  width: 100%;
+  padding: 12px 10px;
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn-copy {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(126,184,247,0.08);
+  font-weight: 700;
+}
+.btn-reset {
+  border-color: var(--border);
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+.btn-copy.copied {
+  border-color: var(--success);
+  color: var(--success);
+  background: rgba(52,211,153,0.08);
+}
+
+/* ── コピー結果プレビュー ── */
+.copy-preview {
+  margin-top: 12px;
+  padding: 12px;
+  background: #0d0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: var(--text-dim);
+}
+
+/* ── 処理中 ── */
+.processing {
+  text-align: center;
+  padding: 20px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ── ボタン行 ── */
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* ── 保存ボタン ── */
+.btn-save {
+  border-color: #a78bfa;
+  color: #a78bfa;
+  background: rgba(167,139,250,0.08);
+  font-weight: 700;
+}
+
+/* ── 合体ボタン ── */
+.btn-merge {
+  border-color: var(--warning);
+  color: var(--warning);
+  background: rgba(251,191,36,0.08);
+  font-weight: 700;
+}
+
+/* ── テキストエリア ── */
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: #0d0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+  min-height: 140px;
+}
+textarea::placeholder { color: var(--text-dim); }
+
+/* ── モーダル ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 200;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal-inner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  width: 100%;
+  max-width: 400px;
+}
+#zoomCanvas { width: 100%; height: auto; border-radius: 6px; image-rendering: pixelated; display: block; }
+.modal-close {
+  display: block; width: 100%; margin-top: 12px; padding: 11px;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: transparent; color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif; font-size: 13px; cursor: pointer;
+}
+```
+
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ 神様アイコン識別ツール</h1>
+  <p>カオスゼロナイトメア｜複数枚一括識別</p>
+</div>
+
+<!-- STEP 1: 画像選択 -->
+
+<div class="card">
+  <div class="card-title">STEP 1 ── 画像を選択（複数可）</div>
+  <div class="upload-btns">
+    <label class="upload-btn">
+      <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(event)">
+      <span class="upload-btn-icon">🖼️</span>
+      <span class="upload-btn-label">カメラロール</span>
+    </label>
+    <label class="upload-btn">
+      <input type="file" id="fileInputCamera" accept="image/*" capture="environment" onchange="handleFiles(event)">
+      <span class="upload-btn-icon">📷</span>
+      <span class="upload-btn-label">直接撮影</span>
+    </label>
+  </div>
+  <p class="upload-hint">※ショートカットと同じ順番で選択してね（20枚以下推奨）</p>
+</div>
+
+<!-- STEP 2: 識別結果 -->
+
+<div class="card" id="resultSection">
+  <div class="card-title">STEP 2 ── 識別結果（プルダウンで修正可）</div>
+  <div class="result-list" id="resultList"></div>
+</div>
+
+<!-- STEP 3: ショートカットテキストと合体 -->
+
+<div class="card" id="mergeSection" style="display:none;">
+  <div class="card-title">STEP 3 ── ショートカットテキストと合体</div>
+  <label class="upload-btn" style="width:100%; min-height:64px;">
+    <input type="file" id="shortcutFile" accept="text/plain,.txt" onchange="loadShortcutFile(event)">
+    <span class="upload-btn-icon">📄</span>
+    <span class="upload-btn-label">テキストファイルをアップロード</span>
+  </label>
+  <div id="shortcutLoaded" style="display:none; margin-top:10px;">
+    <div class="item-conf" id="shortcutFileName"></div>
+    <button class="btn btn-merge" onclick="mergeData()" style="margin-top:10px;">⚡ 合体して出力</button>
+  </div>
+  <div id="mergeResult" style="display:none; margin-top:14px;">
+    <div class="card-title" style="margin-bottom:8px;">合体結果</div>
+    <div class="copy-preview" id="mergePreview"></div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn btn-copy" id="mergeCopyBtn" onclick="copyMerged()">📋 コピー</button>
+      <button class="btn btn-save" onclick="saveMerged()">💾 テキスト保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="resetSection" style="display:none;">
+  <button class="btn btn-reset" onclick="resetTool()">↩ リセットして最初から</button>
+</div>
+
+<!-- 拡大モーダル -->
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-inner">
+    <canvas id="zoomCanvas"></canvas>
+    <button class="modal-close" onclick="closeModal()">閉じる</button>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     定数・データ
+  ============================================================ */
+  const GODS = {
+    ディアロス: ['#F3BA88','#D69D73','#E6AA7D','#E7A171','#D18A60','#FDECCA'],
+    セクレド:   ['#78DEC1','#757DD2','#5183A3','#6997BF','#6AD0BF','#F3FE7B','#6B9DD0','#C7F38B'],
+    キルケン:   ['#E5B1FA','#FEECE8','#F0C9B6','#CCBFFB','#FBE5CB'],
+    ニヒルム:   ['#86CDF4','#7BB1DF','#A3E8FD','#447AA5','#629AC9'],
+    ヴィトル:   ['#AB9180','#6A5D63','#927D78','#988792','#836D69'],
+  };
+  const GOD_NAMES = Object.keys(GODS);
+
+  const CROP_P2 = { x1:0.403, x2:0.430, y1:0.301, y2:0.353 };
+  const CROP_P1 = { x1:0.11,  x2:0.22,  y1:0.22,  y2:0.31  };
+
+  const hexToRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const GOD_RGB = {};
+  for (const [name, hexes] of Object.entries(GODS)) GOD_RGB[name] = hexes.map(hexToRgb);
+
+  let results = []; // { canvas, winner, scoreDiff }
+
+  /* ============================================================
+     画像読み込み・一括処理
+  ============================================================ */
+  async function handleFiles(e) {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    results = [];
+    const resultSection = document.getElementById('resultSection');
+    const resultList    = document.getElementById('resultList');
+
+    resultSection.style.display = 'block';
+    resultList.innerHTML = `<div class="processing">⏳ ${files.length}枚を処理中...</div>`;
+
+    for (let i = 0; i < files.length; i++) {
+      const result = await processFile(files[i], i + 1);
+      results.push(result);
+    }
+
+    renderResultList();
+    document.getElementById('mergeSection').style.display = 'block';
+    document.getElementById('resetSection').style.display = 'block';
+    document.getElementById('mergeSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function processFile(file, index) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          // アイコン領域をクロップ（パターン2優先）
+          const crop = detectPattern(img) === 'p2' ? CROP_P2 : CROP_P1;
+          const canvas = cropToCanvas(img, crop);
+          const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+          const { winner, sorted, scoreDiff } = identifyGod(imageData);
+          resolve({ index, canvas, winner, scoreDiff, sorted });
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // 16:9判定（パターン2）かそれ以外（パターン1）
+  function detectPattern(img) {
+    const ratio = img.naturalWidth / img.naturalHeight;
+    return (ratio > 1.6 && ratio < 1.9) ? 'p2' : 'p1';
+  }
+
+  function cropToCanvas(img, crop) {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    const sx = Math.floor(crop.x1 * W);
+    const sy = Math.floor(crop.y1 * H);
+    const sw = Math.max(1, Math.floor((crop.x2 - crop.x1) * W));
+    const sh = Math.max(1, Math.floor((crop.y2 - crop.y1) * H));
+    const c = document.createElement('canvas');
+    c.width = sw; c.height = sh;
+    c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    return c;
+  }
+
+  /* ============================================================
+     神様識別（最近傍距離方式）
+  ============================================================ */
+  function identifyGod(imageData) {
+    const pixels = imageData.data;
+    const sums = {}, counts = {};
+    for (const name of GOD_NAMES) { sums[name] = 0; counts[name] = 0; }
+
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i+3] < 128) continue;
+      const px = [pixels[i], pixels[i+1], pixels[i+2]];
+      for (const [name, colors] of Object.entries(GOD_RGB)) {
+        let minD = Infinity;
+        for (const c of colors) {
+          const d = Math.sqrt((px[0]-c[0])**2 + (px[1]-c[1])**2 + (px[2]-c[2])**2);
+          if (d < minD) minD = d;
+        }
+        sums[name] += minD;
+        counts[name]++;
+      }
+    }
+
+    const avgDists = {};
+    for (const name of GOD_NAMES) {
+      avgDists[name] = counts[name] > 0 ? sums[name] / counts[name] : Infinity;
+    }
+
+    const sorted    = Object.entries(avgDists).sort((a,b) => a[1]-b[1]);
+    const scoreDiff = sorted[1][1] - sorted[0][1];
+    return { winner: sorted[0][0], sorted, scoreDiff };
+  }
+
+  /* ============================================================
+     結果リスト描画
+  ============================================================ */
+  function renderResultList() {
+    const list = document.getElementById('resultList');
+    list.innerHTML = '';
+
+    results.forEach((r, idx) => {
+      const isLow = r.scoreDiff < 3.0;
+      const div = document.createElement('div');
+      div.className = `result-item${isLow ? ' low-conf' : ''}`;
+
+      // プレビューcanvas
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.className = 'item-preview';
+      previewCanvas.width  = r.canvas.width;
+      previewCanvas.height = r.canvas.height;
+      previewCanvas.getContext('2d').drawImage(r.canvas, 0, 0);
+      previewCanvas.onclick = () => showModal(r.canvas);
+
+      // セレクト
+      const select = document.createElement('select');
+      select.className = `item-select god-${r.winner}`;
+      // 神様5種 + 通常ヒラメキ
+      [...GOD_NAMES, '通常ヒラメキ'].forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name === '通常ヒラメキ' ? '🟡 通常ヒラメキ' : name;
+        if (name === r.winner) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', () => {
+        results[idx].winner = select.value;
+        select.className = `item-select god-${select.value}`;
+      });
+
+      // 信頼度
+      const conf = document.createElement('div');
+      conf.className = `item-conf${isLow ? ' warn' : ''}`;
+      conf.textContent = isLow
+        ? `⚠ スコア差${r.scoreDiff.toFixed(2)}（要目視確認）`
+        : `✓ スコア差${r.scoreDiff.toFixed(2)}`;
+
+      const body = document.createElement('div');
+      body.className = 'item-body';
+      body.appendChild(select);
+      body.appendChild(conf);
+
+      const num = document.createElement('div');
+      num.className = 'item-num';
+      num.textContent = r.index;
+
+      div.appendChild(num);
+      div.appendChild(previewCanvas);
+      div.appendChild(body);
+      list.appendChild(div);
+    });
+  }
+
+  /* ============================================================
+     ショートカットファイル読み込み
+  ============================================================ */
+  let shortcutRawText = '';
+
+  function loadShortcutFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      shortcutRawText = ev.target.result;
+      document.getElementById('shortcutFileName').textContent = `📄 ${file.name} を読み込んだよ！`;
+      document.getElementById('shortcutLoaded').style.display = 'block';
+      document.getElementById('mergeResult').style.display    = 'none';
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  /* ============================================================
+     テキスト合体
+  ============================================================ */
+  function parseShortcutText(raw) {
+    // 「N.\n===\n」を区切りとしてブロック分割
+    const blocks = {};
+    const parts = raw.split(/(?=^\d+\.\s*$)/m);
+    parts.forEach(part => {
+      const lines = part.split('\n').map(l => l.trim()).filter(l => l);
+      if (!lines.length) return;
+      const numMatch = lines[0].match(/^(\d+)\.$$/);
+      if (!numMatch) return;
+      const num = parseInt(numMatch[1]);
+      // ===の次から本文
+      const sepIdx = lines.indexOf('===');
+      const body = sepIdx >= 0 ? lines.slice(sepIdx + 1) : lines.slice(1);
+      blocks[num] = body;
+    });
+    return blocks;
+  }
+
+  function isNoiseChar(ch) {
+    // ひらがな・カタカナ・漢字・英数字・一般的な記号以外 = ノイズ文字
+    return !/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3000-\u303F\uFF00-\uFFEFa-zA-Z0-9（）「」【】［］\[\]()、。・＋\-!！?？0-9０-９]/.test(ch);
+  }
+
+  function extractGodEffect(lines) {
+    if (!lines.length) return { mainLines: lines, godEffect: null };
+    const last = lines[lines.length - 1];
+    if (last && last.length > 1 && isNoiseChar(last[0])) {
+      return {
+        mainLines: lines.slice(0, -1),
+        godEffect: last.slice(1).trim()
+      };
+    }
+    return { mainLines: lines, godEffect: null };
+  }
+
+  function mergeData() {
+    const raw = shortcutRawText.trim();
+    if (!raw) { alert('テキストファイルを先にアップロードしてね！'); return; }
+
+    const blocks = parseShortcutText(raw);
+    const lines = [];
+
+    results.forEach(r => {
+      const body = blocks[r.index];
+      const godName = r.winner === '通常ヒラメキ' ? '通常ヒラメキ' : r.winner;
+
+      if (!body || !body.length) {
+        lines.push(`【${godName}】`);
+        lines.push('（テキストなし）');
+        lines.push('---');
+        return;
+      }
+
+      const cardName = body[0] || '';
+      const cardType = body[1] || '';
+      const { mainLines, godEffect } = extractGodEffect(body.slice(2));
+
+      lines.push(`【${godName}】`);
+      lines.push(`${cardName} / ${cardType}`);
+      mainLines.forEach(l => lines.push(l));
+      if (godEffect) lines.push(`→ ${godEffect}`);
+      lines.push('---');
+    });
+
+    const merged = lines.join('\n');
+    document.getElementById('mergePreview').textContent = merged;
+    document.getElementById('mergeResult').style.display = 'block';
+    document.getElementById('mergeResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function copyMerged() {
+    const text = document.getElementById('mergePreview').textContent;
+    writeToClipboard(text, 'mergeCopyBtn', '📋 コピー');
+  }
+
+  function saveMerged() {
+    const text = document.getElementById('mergePreview').textContent;
+    downloadText(text, '合体結果.txt');
+  }
+
+  /* ============================================================
+     共通ユーティリティ
+  ============================================================ */
+  function writeToClipboard(text, btnId, defaultLabel) {
+    navigator.clipboard.writeText(text).then(() => {
+      flashBtn(btnId, '✅ コピーしました！', defaultLabel);
+    }).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      flashBtn(btnId, '✅ コピーしました！', defaultLabel);
+    });
+  }
+
+  function flashBtn(btnId, msg, defaultLabel) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.textContent = msg;
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = defaultLabel;
+      btn.classList.remove('copied');
+    }, 2000);
+  }
+
+  function downloadText(text, filename) {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    // iOS Safari対応：Web Share APIを優先
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], filename, { type: 'text/plain' });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: filename })
+          .catch(e => { if (e.name !== 'AbortError') fallbackDownload(blob, filename); });
+        return;
+      }
+    }
+    fallbackDownload(blob, filename);
+  }
+
+  function fallbackDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /* ============================================================
+     リセット
+  ============================================================ */
+  function resetTool() {
+    results = [];
+    shortcutRawText = '';
+    document.getElementById('fileInput').value = '';
+    document.getElementById('fileInputCamera').value = '';
+    document.getElementById('shortcutFile').value = '';
+    document.getElementById('resultSection').style.display  = 'none';
+    document.getElementById('mergeSection').style.display   = 'none';
+    document.getElementById('resetSection').style.display   = 'none';
+    document.getElementById('mergeResult').style.display    = 'none';
+    document.getElementById('shortcutLoaded').style.display = 'none';
+    document.getElementById('resultList').innerHTML = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ============================================================
+     拡大モーダル
+  ============================================================ */
+  function showModal(srcCanvas) {
+    const zoom = document.getElementById('zoomCanvas');
+    zoom.width  = srcCanvas.width;
+    zoom.height = srcCanvas.height;
+    zoom.getContext('2d').drawImage(srcCanvas, 0, 0);
+    document.getElementById('modalOverlay').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('show');
+  }
+
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+</script>
+
+</body>
+</html>
