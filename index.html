@@ -303,7 +303,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.2</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.3</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -580,19 +580,26 @@ textarea::placeholder { color: #888888; }
      テキスト合体
   ============================================================ */
   function parseShortcutText(raw) {
-    // 「N.\n===\n」を区切りとしてブロック分割
+    // 「===next===」を区切りとしてブロック分割
     const blocks = {};
-    const parts = raw.split(/(?=^\d+\.\s*$)/m);
+    const parts = raw.split(/===next===/);
     parts.forEach(part => {
       const lines = part.split('\n').map(l => l.trim()).filter(l => l);
       if (!lines.length) return;
-      const numMatch = lines[0].match(/^(\d+)\.$$/);
+
+      // 「#N.」から番号を取得
+      const numMatch = lines[0].match(/^#(\d+)\./);
       if (!numMatch) return;
       const num = parseInt(numMatch[1]);
-      // ===の次から本文
-      const sepIdx = lines.indexOf('===');
-      const body = sepIdx >= 0 ? lines.slice(sepIdx + 1) : lines.slice(1);
-      blocks[num] = body;
+
+      // ##==カード名・種別== と ##==カード効果・ヒラメキ== でセクション分割
+      const nameIdx   = lines.findIndex(l => l.includes('カード名・種別'));
+      const effectIdx = lines.findIndex(l => l.includes('カード効果・ヒラメキ'));
+
+      const nameLines   = (nameIdx   >= 0 && effectIdx > nameIdx)   ? lines.slice(nameIdx + 1,   effectIdx) : [];
+      const effectLines = (effectIdx >= 0)                           ? lines.slice(effectIdx + 1)            : [];
+
+      blocks[num] = { nameLines, effectLines };
     });
     return blocks;
   }
