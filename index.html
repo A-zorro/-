@@ -303,7 +303,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.4</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.6</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -633,11 +633,12 @@ textarea::placeholder { color: #888888; }
       const godName = r.winner === '通常ヒラメキ' ? '通常ヒラメキ' : r.winner;
 
       lines.push(`#${r.index}.`);
+      lines.push('##==神の名前==');
       lines.push(`【${godName}】`);
 
       if (!block) {
         lines.push('（テキストなし）');
-        lines.push('---');
+        lines.push('===next===');
         return;
       }
 
@@ -651,7 +652,7 @@ textarea::placeholder { color: #888888; }
       mainLines.forEach(l => lines.push(l));
       if (godEffect) lines.push(`→ ${godEffect}`);
 
-      lines.push('---');
+      lines.push('===next===');
     });
 
     const merged = lines.join('\n');
