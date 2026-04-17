@@ -232,9 +232,9 @@ body {
   border: 2px solid #444;
   background: #2a2a2a;
   font-family: 'Rajdhani', sans-serif;
-  font-size: 18px;
+  font-size: 27px;
   font-weight: 700;
-  color: #e8e8e8;
+  color: #FFFFFF;
   cursor: pointer;
   overflow: visible;
   transition: all 0.12s;
@@ -247,7 +247,9 @@ body {
 .digit-btn.selected {
   background: rgba(255,255,255,0.08);
 }
-.digit-btn.dc-Ø { color: #969696; }
+/* 3段階明度（案A: 白/D8D8D8/969696）*/
+.dc-mid { color: #D8D8D8; }
+.dc-dark { color: #969696; }
 .digit-btn:active { opacity: 0.7; }
 /* チェック表示 */
 .cost-check {
@@ -934,7 +936,10 @@ const COST_TEMPLATE_B64 = {
       // 数字ボタン 0-3(row1), 4-7(row2), 8-9-X-Ø(row3)
       DIGITS.forEach((d, di) => {
         const btn = document.createElement('button');
-        btn.className = 'digit-btn' + (d === 'Ø' ? ' dc-Ø' : '');
+        const midDigits  = new Set(['4','5','6','7']);
+        const darkDigits = new Set(['8','9','X','Ø']);
+        const brightnessClass = midDigits.has(d) ? ' dc-mid' : darkDigits.has(d) ? ' dc-dark' : '';
+        btn.className = 'digit-btn' + brightnessClass;
         btn.style.gridRow  = String(Math.floor(di/4)+1);
         btn.style.gridColumn = String((di%4)+2);
         btn.innerHTML = `<span>${d}</span>`;
