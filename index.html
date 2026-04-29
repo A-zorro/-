@@ -386,6 +386,45 @@ textarea::placeholder { color: #888888; }
   background: rgba(126,184,212,0.08);
 }
 
+/* ── 確認テーブル ── */
+.confirm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.confirm-table th {
+  background: #333;
+  color: #888;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid #444;
+}
+.confirm-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid #383838;
+  vertical-align: middle;
+  text-align: center;
+}
+.confirm-table tr:last-child td { border-bottom: none; }
+.confirm-cell-name {
+  text-align: left;
+  font-size: 12px;
+  color: #e8e8e8;
+  word-break: break-all;
+}
+.confirm-cell-cost {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+}
+.confirm-cell-god {
+  font-weight: 700;
+  font-size: 12px;
+}
+
 /* ── モーダル ── */
 .modal-overlay {
   display: none;
@@ -422,7 +461,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.7</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.8</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -469,7 +508,11 @@ textarea::placeholder { color: #888888; }
   </label>
   <div id="shortcutLoaded" style="display:none; margin-top:10px;">
     <div class="item-conf" id="shortcutFileName"></div>
-    <button class="btn btn-merge" onclick="mergeData()" style="margin-top:10px;">⚡ 合成して出力</button>
+    <div id="confirmTableArea" style="display:none; margin-top:10px;">
+      <div class="card-title" style="margin-bottom:4px;">📋 内容確認（順番・カード名・コスト・神様）</div>
+      <table class="confirm-table" id="confirmTable"></table>
+      <button class="btn btn-merge" onclick="mergeData()" style="margin-top:10px;">⚡ 確認OK・合成して出力</button>
+    </div>
   </div>
   <div id="mergeResult" style="display:none; margin-top:14px;">
     <div class="card-title" style="margin-bottom:8px;">合成結果</div>
@@ -697,6 +740,7 @@ const COST_TEMPLATE_B64 = {
   }
 
   let results = [];
+  let confirmItems = []; // { resultIdx, excluded }
   let patternMode = 'auto'; // 'auto' | 'p2' | 'p1'
 
   function setPattern(mode) {
@@ -770,8 +814,16 @@ const COST_TEMPLATE_B64 = {
       costFeat  = featResult;
     }
 
+    // カード名領域クロップ（p2のみ・絶対座標）
+    let nameCanvas = null;
+    if (pattern === 'p2') {
+      nameCanvas = document.createElement('canvas');
+      nameCanvas.width = 300; nameCanvas.height = 130;
+      nameCanvas.getContext('2d').drawImage(img, 530, 140, 300, 130, 0, 0, 300, 130);
+    }
+
     return { index, canvas, winner, scoreDiff, sorted,
-             costDigit, costTmpl, costFeat, costColor, costCanvas, isP2: pattern === 'p2' };
+             costDigit, costTmpl, costFeat, costColor, costCanvas, nameCanvas, isP2: pattern === 'p2' };
   }
 
   // 16:9判定（パターン2）かそれ以外（パターン1）
@@ -1043,8 +1095,139 @@ const COST_TEMPLATE_B64 = {
       document.getElementById('shortcutFileName').textContent = `📄 ${file.name} を読み込んだよ！`;
       document.getElementById('shortcutLoaded').style.display = 'block';
       document.getElementById('mergeResult').style.display    = 'none';
+      renderConfirmTable(parseShortcutText(shortcutRawText));
     };
     reader.readAsText(file, 'UTF-8');
+  }
+
+  /* ============================================================
+     確認テーブル描画
+  ============================================================ */
+  const GOD_COLORS = {
+    ディアロス: '#F3BA88',
+    セクレド:   '#78DEC1',
+    キルケン:   '#E5B1FA',
+    ニヒルム:   '#86CDF4',
+    ヴィトル:   '#AB9180',
+    通常ヒラメキ: '#fbbf24',
+  };
+
+  function renderConfirmTable(blocks, preserveItems) {
+    // confirmItems初期化（並び替え・除外状態を保持する場合はpreserveItems=true）
+    if (!preserveItems) {
+      confirmItems = results.map((_, idx) => ({ resultIdx: idx, excluded: false }));
+    }
+
+    const table = document.getElementById('confirmTable');
+    table.innerHTML = '';
+
+    // ヘッダー
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>順</th><th>画像</th><th>カード名</th><th>コスト</th><th>神様</th><th>除外</th></tr>';
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+
+    confirmItems.forEach((item, pos) => {
+      const r = results[item.resultIdx];
+      const block = blocks[r.index];
+      const cardName = (block && block.nameLines.length > 0)
+        ? block.nameLines[0]
+        : '（未取得）';
+
+      // コスト
+      const digitEl = document.getElementById(`costDigit-${item.resultIdx}`);
+      const colorEl = document.getElementById(`costColor-${item.resultIdx}`);
+      const digit = (digitEl && digitEl.value) ? digitEl.value : '?';
+      const colorVal = (colorEl && colorEl.value) ? colorEl.value : '?';
+      const costColor = colorVal === '赤_up' ? '#f87171' : colorVal === '緑_down' ? '#34d399' : '#7eb8d4';
+      const costText = `${digit}/${colorVal.split('_')[0]}`;
+
+      // 神様
+      const godName = r.winner;
+      const godColor = GOD_COLORS[godName] || '#888888';
+
+      // プレビューcanvas
+      const srcCanvas = r.nameCanvas || r.canvas;
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width  = srcCanvas.width;
+      previewCanvas.height = srcCanvas.height;
+      previewCanvas.style.cssText = r.nameCanvas
+        ? 'width:90px;height:39px;border-radius:4px;border:1px solid #444;background:#000;image-rendering:pixelated;cursor:pointer;'
+        : 'width:40px;height:40px;border-radius:4px;border:1px solid #444;background:#000;image-rendering:pixelated;cursor:pointer;';
+      previewCanvas.getContext('2d').drawImage(srcCanvas, 0, 0);
+      previewCanvas.onclick = () => showModal(srcCanvas);
+
+      const tr = document.createElement('tr');
+      if (item.excluded) tr.style.opacity = '0.35';
+
+      // 順番セル（上下ボタン）
+      const tdOrder = document.createElement('td');
+      tdOrder.style.cssText = 'padding:2px;white-space:nowrap;';
+      const btnUp = document.createElement('button');
+      btnUp.textContent = '▲';
+      btnUp.style.cssText = 'display:block;width:100%;padding:2px 4px;margin-bottom:2px;border-radius:4px;border:1px solid #444;background:#2a2a2a;color:#888;font-size:11px;cursor:pointer;';
+      btnUp.disabled = pos === 0;
+      btnUp.style.opacity = pos === 0 ? '0.3' : '1';
+      btnUp.onclick = () => {
+        [confirmItems[pos], confirmItems[pos-1]] = [confirmItems[pos-1], confirmItems[pos]];
+        renderConfirmTable(blocks, true);
+      };
+      const btnDown = document.createElement('button');
+      btnDown.textContent = '▼';
+      btnDown.style.cssText = 'display:block;width:100%;padding:2px 4px;border-radius:4px;border:1px solid #444;background:#2a2a2a;color:#888;font-size:11px;cursor:pointer;';
+      btnDown.disabled = pos === confirmItems.length - 1;
+      btnDown.style.opacity = pos === confirmItems.length - 1 ? '0.3' : '1';
+      btnDown.onclick = () => {
+        [confirmItems[pos], confirmItems[pos+1]] = [confirmItems[pos+1], confirmItems[pos]];
+        renderConfirmTable(blocks, true);
+      };
+      tdOrder.appendChild(btnUp);
+      tdOrder.appendChild(btnDown);
+
+      // 画像セル
+      const tdImg = document.createElement('td');
+      tdImg.appendChild(previewCanvas);
+
+      // カード名セル
+      const tdName = document.createElement('td');
+      tdName.className = 'confirm-cell-name';
+      tdName.textContent = cardName;
+
+      // コストセル
+      const tdCost = document.createElement('td');
+      tdCost.className = 'confirm-cell-cost';
+      tdCost.style.color = costColor;
+      tdCost.textContent = costText;
+
+      // 神様セル
+      const tdGod = document.createElement('td');
+      tdGod.className = 'confirm-cell-god';
+      tdGod.style.color = godColor;
+      tdGod.textContent = godName === '通常ヒラメキ' ? '🟡 通常' : godName;
+
+      // 除外セル
+      const tdExclude = document.createElement('td');
+      const btnExclude = document.createElement('button');
+      btnExclude.textContent = item.excluded ? '✕' : '－';
+      btnExclude.style.cssText = `display:block;width:100%;padding:4px;border-radius:6px;border:1px solid ${item.excluded ? '#f87171' : '#444'};background:${item.excluded ? 'rgba(248,113,113,0.15)' : 'transparent'};color:${item.excluded ? '#f87171' : '#555'};font-size:13px;font-weight:700;cursor:pointer;`;
+      btnExclude.onclick = () => {
+        confirmItems[pos].excluded = !confirmItems[pos].excluded;
+        renderConfirmTable(blocks, true);
+      };
+      tdExclude.appendChild(btnExclude);
+
+      tr.appendChild(tdOrder);
+      tr.appendChild(tdImg);
+      tr.appendChild(tdName);
+      tr.appendChild(tdCost);
+      tr.appendChild(tdGod);
+      tr.appendChild(tdExclude);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    document.getElementById('confirmTableArea').style.display = 'block';
   }
 
   /* ============================================================
@@ -1099,17 +1282,20 @@ const COST_TEMPLATE_B64 = {
     const blocks = parseShortcutText(raw);
     const lines = [];
 
-    results.forEach(r => {
+    // confirmItemsの順番・除外フラグに従って出力
+    const activeItems = confirmItems.filter(item => !item.excluded);
+    activeItems.forEach((item, outputIdx) => {
+      const r = results[item.resultIdx];
       const block = blocks[r.index];
       const godName = r.winner === '通常ヒラメキ' ? '通常ヒラメキ' : r.winner;
 
-      lines.push(`#${r.index}.`);
+      lines.push(`#${outputIdx + 1}.`);
       lines.push('##==神の名前==');
       lines.push(`【${godName}】`);
 
       // コスト
-      const digitEl = document.getElementById(`costDigit-${r.index - 1}`);
-      const colorEl = document.getElementById(`costColor-${r.index - 1}`);
+      const digitEl = document.getElementById(`costDigit-${item.resultIdx}`);
+      const colorEl = document.getElementById(`costColor-${item.resultIdx}`);
       const costDigitVal = (digitEl && digitEl.value) ? digitEl.value : '?';
       const costColorVal = (colorEl && colorEl.value) ? colorEl.value : '?';
       lines.push('##==コスト==');
@@ -1206,6 +1392,7 @@ const COST_TEMPLATE_B64 = {
   ============================================================ */
   function resetTool() {
     results = [];
+    confirmItems = [];
     shortcutRawText = '';
     document.getElementById('fileInput').value = '';
     document.getElementById('shortcutFile').value = '';
@@ -1215,6 +1402,8 @@ const COST_TEMPLATE_B64 = {
     document.getElementById('resetSection').style.display   = 'none';
     document.getElementById('mergeResult').style.display    = 'none';
     document.getElementById('shortcutLoaded').style.display = 'none';
+    document.getElementById('confirmTableArea').style.display = 'none';
+    document.getElementById('confirmTable').innerHTML = '';
     document.getElementById('resultList').innerHTML = '';
     document.getElementById('costList').innerHTML = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
