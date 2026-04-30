@@ -1339,6 +1339,11 @@ const COST_TEMPLATE_B64 = {
       const matches = matchHirameki(ocrEffect);
       const top = matches[0] || null;
 
+      // 神様（auto-selectionより前に定義）
+      const godName  = r.winner;
+      const godColor = GOD_COLORS[godName] || '#888';
+      const hasGod   = godName !== '通常ヒラメキ';
+
       // 初回のみ自動選択
       if (!preserveItems && top) {
         item.charName    = top.charName;
@@ -1372,11 +1377,6 @@ const COST_TEMPLATE_B64 = {
       const colorEl   = document.getElementById(`costColor-${item.resultIdx}`);
       const costDigit = (digitEl && digitEl.value) ? digitEl.value : '?';
       const costColor = (colorEl && colorEl.value) ? colorEl.value : '?';
-
-      // 神様
-      const godName  = r.winner;
-      const godColor = GOD_COLORS[godName] || '#888';
-      const hasGod   = godName !== '通常ヒラメキ';
 
       // 現在選択中のカード情報
       const selCharData = characterData[item.charName];
