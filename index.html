@@ -425,6 +425,137 @@ textarea::placeholder { color: #888888; }
   font-size: 12px;
 }
 
+/* ── 照合カード ── */
+.match-card {
+  background: #252525;
+  border: 1px solid #444;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.match-card.excluded { opacity: 0.35; }
+.match-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  background: #2e2e2e;
+  border-bottom: 1px solid #3a3a3a;
+}
+.match-score {
+  font-weight: 700;
+  font-size: 12px;
+  font-family: 'Rajdhani', sans-serif;
+}
+.match-score.high { color: #34d399; }
+.match-score.mid  { color: #fbbf24; }
+.match-score.low  { color: #f87171; }
+.match-num { font-size: 11px; color: #666; }
+.match-body {
+  display: flex;
+  min-height: 90px;
+}
+.match-image-cell {
+  flex: 0 0 45%;
+  padding: 8px;
+  border-right: 1px solid #3a3a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.match-text-cell {
+  flex: 1;
+  padding: 8px;
+  font-size: 10px;
+  color: #cccccc;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.match-selects {
+  padding: 8px 10px;
+  border-top: 1px solid #3a3a3a;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.match-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.match-select-label {
+  font-size: 10px;
+  color: #888;
+  width: 90px;
+  flex-shrink: 0;
+}
+.match-select {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #e8e8e8;
+  font-size: 11px;
+  padding: 4px 6px;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+.match-select:disabled {
+  color: #555;
+  border-color: #333;
+}
+.match-ocr-toggle {
+  padding: 5px 10px;
+  border-top: 1px solid #2e2e2e;
+  font-size: 10px;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+}
+.match-ocr-content {
+  display: none;
+  padding: 5px 10px 8px;
+  font-size: 10px;
+  color: #555;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-top: 1px solid #2a2a2a;
+  background: #1e1e1e;
+}
+.match-footer {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid #2e2e2e;
+  justify-content: space-between;
+  align-items: center;
+}
+.match-order-btns { display: flex; gap: 4px; }
+.match-order-btn {
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+}
+.match-order-btn:disabled { opacity: 0.3; cursor: default; }
+.match-exclude-btn {
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid #444;
+  background: transparent;
+  color: #666;
+  font-size: 11px;
+  cursor: pointer;
+}
+.match-exclude-btn.active {
+  border-color: #f87171;
+  color: #f87171;
+  background: rgba(248,113,113,0.1);
+}
+
 /* ── モーダル ── */
 .modal-overlay {
   display: none;
@@ -461,7 +592,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.8</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.9</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -509,8 +640,8 @@ textarea::placeholder { color: #888888; }
   <div id="shortcutLoaded" style="display:none; margin-top:10px;">
     <div class="item-conf" id="shortcutFileName"></div>
     <div id="confirmTableArea" style="display:none; margin-top:10px;">
-      <div class="card-title" style="margin-bottom:4px;">📋 内容確認（順番・カード名・コスト・神様）</div>
-      <table class="confirm-table" id="confirmTable"></table>
+      <div class="card-title" style="margin-bottom:4px;">📋 照合・確認（順番・カード・ヒラメキ）</div>
+      <div id="confirmCards"></div>
       <button class="btn btn-merge" onclick="mergeData()" style="margin-top:10px;">⚡ 確認OK・合成して出力</button>
     </div>
   </div>
@@ -740,8 +871,86 @@ const COST_TEMPLATE_B64 = {
   }
 
   let results = [];
-  let confirmItems = []; // { resultIdx, excluded }
+  let confirmItems = []; // { resultIdx, excluded, charName, cardKey, hiramekiNum, kakureEffect, shinEffect, matchScore }
+  let currentBlocks = {}; // parseShortcutTextの結果を保持
   let patternMode = 'auto'; // 'auto' | 'p2' | 'p1'
+
+  /* ============================================================
+     JSONデータ読み込み
+  ============================================================ */
+  const DATA_BASE = 'https://raw.githubusercontent.com/A-zorro/-/main/data/';
+  let characterData  = {}; // { キャラ名: { cards: {...} } }
+  let hiramekiEffects = {}; // { '001-01': '効果テキスト', ... }
+  let ocrDict = { corrections: {}, terms: [] };
+
+  async function loadDataFiles() {
+    try {
+      const [manifestRes, effectsRes, ocrRes] = await Promise.all([
+        fetch(DATA_BASE + 'manifest.json'),
+        fetch(DATA_BASE + encodeURIComponent('ヒラメキリスト.json')),
+        fetch(DATA_BASE + encodeURIComponent('OCR辞典.json')),
+      ]);
+      const manifest = await manifestRes.json();
+      hiramekiEffects = (await effectsRes.json()).effects;
+      ocrDict = await ocrRes.json();
+
+      await Promise.all(manifest.characters.map(async name => {
+        const res = await fetch(DATA_BASE + encodeURIComponent(name + '.json'));
+        characterData[name] = await res.json();
+      }));
+      console.log('データ読み込み完了:', Object.keys(characterData));
+    } catch (e) {
+      console.warn('データ読み込みエラー（照合機能は限定動作）:', e);
+    }
+  }
+  loadDataFiles();
+
+  /* ============================================================
+     OCR正規化・照合ロジック
+  ============================================================ */
+  function normalizeOCR(text) {
+    let result = text || '';
+    for (const [wrong, correct] of Object.entries(ocrDict.corrections || {})) {
+      result = result.replaceAll(wrong, correct);
+    }
+    return result.replace(/\s+/g, '');
+  }
+
+  function getBigrams(text) {
+    const set = new Set();
+    for (let i = 0; i < text.length - 1; i++) set.add(text.slice(i, i + 2));
+    return set;
+  }
+
+  function similarity(a, b) {
+    const ba = getBigrams(a), bb = getBigrams(b);
+    if (ba.size === 0 && bb.size === 0) return 1;
+    if (ba.size === 0 || bb.size === 0) return 0;
+    let inter = 0;
+    for (const g of ba) { if (bb.has(g)) inter++; }
+    return inter / (ba.size + bb.size - inter);
+  }
+
+  function matchHirameki(ocrEffectText) {
+    const norm = normalizeOCR(ocrEffectText);
+    const candidates = [];
+    for (const [charName, charData] of Object.entries(characterData)) {
+      if (!charData.cards) continue;
+      for (const [cardKey, card] of Object.entries(charData.cards)) {
+        if (!card.hirameki) continue;
+        for (let n = 1; n <= 5; n++) {
+          const h = card.hirameki[String(n)];
+          if (!h) continue;
+          const score = similarity(norm, normalizeOCR(h.effect));
+          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score, isX6: false, effect: h.effect, cost: h.cost, kind: card.kind });
+        }
+        // X-6：基本効果と比較
+        const baseScore = similarity(norm, normalizeOCR(card.baseEffect));
+        candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: baseScore * 0.9, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+      }
+    }
+    return candidates.sort((a, b) => b.score - a.score);
+  }
 
   function setPattern(mode) {
     patternMode = mode;
@@ -818,8 +1027,8 @@ const COST_TEMPLATE_B64 = {
     let nameCanvas = null;
     if (pattern === 'p2') {
       nameCanvas = document.createElement('canvas');
-      nameCanvas.width = 300; nameCanvas.height = 130;
-      nameCanvas.getContext('2d').drawImage(img, 530, 140, 300, 130, 0, 0, 300, 130);
+      nameCanvas.width = 300; nameCanvas.height = 480;
+      nameCanvas.getContext('2d').drawImage(img, 530, 140, 300, 480, 0, 0, 300, 480);
     }
 
     return { index, canvas, winner, scoreDiff, sorted,
@@ -1095,138 +1304,299 @@ const COST_TEMPLATE_B64 = {
       document.getElementById('shortcutFileName').textContent = `📄 ${file.name} を読み込んだよ！`;
       document.getElementById('shortcutLoaded').style.display = 'block';
       document.getElementById('mergeResult').style.display    = 'none';
-      renderConfirmTable(parseShortcutText(shortcutRawText));
+      currentBlocks = parseShortcutText(shortcutRawText);
+      renderConfirmCards(currentBlocks);
     };
     reader.readAsText(file, 'UTF-8');
   }
 
   /* ============================================================
-     確認テーブル描画
+     照合カード描画
   ============================================================ */
   const GOD_COLORS = {
-    ディアロス: '#F3BA88',
-    セクレド:   '#78DEC1',
-    キルケン:   '#E5B1FA',
-    ニヒルム:   '#86CDF4',
-    ヴィトル:   '#AB9180',
-    通常ヒラメキ: '#fbbf24',
+    ディアロス: '#F3BA88', セクレド: '#78DEC1', キルケン: '#E5B1FA',
+    ニヒルム: '#86CDF4', ヴィトル: '#AB9180', 通常ヒラメキ: '#fbbf24',
   };
 
-  function renderConfirmTable(blocks, preserveItems) {
-    // confirmItems初期化（並び替え・除外状態を保持する場合はpreserveItems=true）
+  function renderConfirmCards(blocks, preserveItems) {
     if (!preserveItems) {
-      confirmItems = results.map((_, idx) => ({ resultIdx: idx, excluded: false }));
+      confirmItems = results.map((_, idx) => ({
+        resultIdx: idx, excluded: false,
+        charName: null, cardKey: null, hiramekiNum: null,
+        kakureEffect: null, shinEffect: null, matchScore: 0
+      }));
     }
 
-    const table = document.getElementById('confirmTable');
-    table.innerHTML = '';
-
-    // ヘッダー
-    const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>順</th><th>画像</th><th>カード名</th><th>コスト</th><th>神様</th><th>除外</th></tr>';
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
+    const container = document.getElementById('confirmCards');
+    container.innerHTML = '';
 
     confirmItems.forEach((item, pos) => {
       const r = results[item.resultIdx];
       const block = blocks[r.index];
-      const cardName = (block && block.nameLines.length > 0)
-        ? block.nameLines[0]
-        : '（未取得）';
+      const ocrEffect = block ? block.effectLines.join('\n') : '';
 
-      // コスト
-      const digitEl = document.getElementById(`costDigit-${item.resultIdx}`);
-      const colorEl = document.getElementById(`costColor-${item.resultIdx}`);
-      const digit = (digitEl && digitEl.value) ? digitEl.value : '?';
-      const colorVal = (colorEl && colorEl.value) ? colorEl.value : '?';
-      const costColor = colorVal === '赤_up' ? '#f87171' : colorVal === '緑_down' ? '#34d399' : '#7eb8d4';
-      const costText = `${digit}/${colorVal.split('_')[0]}`;
+      // 照合実行
+      const matches = matchHirameki(ocrEffect);
+      const top = matches[0] || null;
+
+      // 初回のみ自動選択
+      if (!preserveItems && top) {
+        item.charName    = top.charName;
+        item.cardKey     = top.cardKey;
+        item.hiramekiNum = top.hiramekiNum;
+        item.matchScore  = top.score;
+      }
+
+      // コスト情報
+      const digitEl   = document.getElementById(`costDigit-${item.resultIdx}`);
+      const colorEl   = document.getElementById(`costColor-${item.resultIdx}`);
+      const costDigit = (digitEl && digitEl.value) ? digitEl.value : '?';
+      const costColor = (colorEl && colorEl.value) ? colorEl.value : '?';
 
       // 神様
-      const godName = r.winner;
-      const godColor = GOD_COLORS[godName] || '#888888';
+      const godName  = r.winner;
+      const godColor = GOD_COLORS[godName] || '#888';
+      const hasGod   = godName !== '通常ヒラメキ';
 
-      // プレビューcanvas
+      // 現在選択中のカード情報
+      const selCharData = characterData[item.charName];
+      const selCard     = selCharData ? selCharData.cards[item.cardKey] : null;
+      const selHirameki = selCard ? selCard.hirameki[String(item.hiramekiNum)] : null;
+      const isX6        = item.hiramekiNum === 6;
+
+      // 整形済みテキスト
+      let formattedText = '';
+      if (selCard && selHirameki) {
+        formattedText = [
+          `${item.charName} / ${item.cardKey} / ${selCard.name}`,
+          `コスト${selHirameki.cost} / ${selCard.kind} / X-${item.hiramekiNum}`,
+          '',
+          selHirameki.effect,
+        ].join('\n');
+      } else if (selCard && isX6) {
+        formattedText = [
+          `${item.charName} / ${item.cardKey} / ${selCard.name}`,
+          `コスト${selCard.cost} / ${selCard.kind} / X-6（隠れヒラメキ）`,
+          '',
+          selCard.baseEffect,
+        ].join('\n');
+      } else {
+        formattedText = '（照合結果なし）\n\n' + ocrEffect;
+      }
+
+      // 適合率スコア
+      const score = Math.round((item.matchScore || 0) * 100);
+      const scoreClass = score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
+
+      // ── カード全体 ──
+      const card = document.createElement('div');
+      card.className = 'match-card' + (item.excluded ? ' excluded' : '');
+
+      // ヘッダー
+      const header = document.createElement('div');
+      header.className = 'match-card-header';
+      header.innerHTML = `
+        <span class="match-score ${scoreClass}">適合率 ${score}%</span>
+        <span class="match-num">#${pos + 1}</span>
+      `;
+      card.appendChild(header);
+
+      // 画像＋テキスト
+      const body = document.createElement('div');
+      body.className = 'match-body';
+
+      // 画像セル（カード全面）
+      const imgCell = document.createElement('div');
+      imgCell.className = 'match-image-cell';
       const srcCanvas = r.nameCanvas || r.canvas;
       const previewCanvas = document.createElement('canvas');
       previewCanvas.width  = srcCanvas.width;
       previewCanvas.height = srcCanvas.height;
-      previewCanvas.style.cssText = r.nameCanvas
-        ? 'width:90px;height:39px;border-radius:4px;border:1px solid #444;background:#000;image-rendering:pixelated;cursor:pointer;'
-        : 'width:40px;height:40px;border-radius:4px;border:1px solid #444;background:#000;image-rendering:pixelated;cursor:pointer;';
+      previewCanvas.style.cssText = 'width:100%;height:auto;border-radius:4px;border:1px solid #444;background:#000;image-rendering:pixelated;cursor:pointer;max-width:130px;';
       previewCanvas.getContext('2d').drawImage(srcCanvas, 0, 0);
       previewCanvas.onclick = () => showModal(srcCanvas);
+      imgCell.appendChild(previewCanvas);
 
-      const tr = document.createElement('tr');
-      if (item.excluded) tr.style.opacity = '0.35';
+      // テキストセル
+      const textCell = document.createElement('div');
+      textCell.className = 'match-text-cell';
 
-      // 順番セル（上下ボタン）
-      const tdOrder = document.createElement('td');
-      tdOrder.style.cssText = 'padding:2px;white-space:nowrap;';
+      // 神様表示（色付き）
+      const godSpan = document.createElement('div');
+      godSpan.style.cssText = `font-size:11px;font-weight:700;color:${godColor};margin-bottom:4px;`;
+      godSpan.textContent = hasGod ? `【${godName}】` : '🟡 通常ヒラメキ';
+      textCell.appendChild(godSpan);
+
+      // コスト表示
+      const costColorHex = costColor === '赤_up' ? '#f87171' : costColor === '緑_down' ? '#34d399' : '#7eb8d4';
+      const costSpan = document.createElement('div');
+      costSpan.style.cssText = `font-size:10px;color:${costColorHex};margin-bottom:6px;font-family:'Rajdhani',sans-serif;font-weight:700;`;
+      costSpan.textContent = `コスト ${costDigit} / ${costColor.split('_')[0]}`;
+      textCell.appendChild(costSpan);
+
+      // 整形済みテキスト
+      const textPre = document.createElement('div');
+      textPre.style.cssText = 'font-size:10px;color:#ccc;white-space:pre-wrap;word-break:break-all;';
+      textPre.textContent = formattedText;
+      textCell.appendChild(textPre);
+
+      body.appendChild(imgCell);
+      body.appendChild(textCell);
+      card.appendChild(body);
+
+      // ── ドロップダウン群 ──
+      const selects = document.createElement('div');
+      selects.className = 'match-selects';
+
+      // ヘルパー：select行を作る
+      function makeSelectRow(label, options, selectedVal, disabled, onChange) {
+        const row = document.createElement('div');
+        row.className = 'match-select-row';
+        const lbl = document.createElement('div');
+        lbl.className = 'match-select-label';
+        lbl.textContent = label;
+        const sel = document.createElement('select');
+        sel.className = 'match-select';
+        sel.disabled = disabled;
+        options.forEach(([val, text]) => {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = text;
+          if (val === selectedVal) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        if (!disabled) sel.addEventListener('change', () => onChange(sel.value));
+        row.appendChild(lbl);
+        row.appendChild(sel);
+        return { row, sel };
+      }
+
+      // キャラクター選択
+      const charOptions = [['', '（未特定）'], ...Object.keys(characterData).map(n => [n, n])];
+      const { row: charRow, sel: charSel } = makeSelectRow(
+        '⬜ キャラ', charOptions, item.charName || '',
+        Object.keys(characterData).length === 0,
+        val => {
+          item.charName = val || null;
+          item.cardKey = null; item.hiramekiNum = null;
+          renderConfirmCards(currentBlocks, true);
+        }
+      );
+      selects.appendChild(charRow);
+
+      // カード選択
+      const cardOptions = [['', '（未特定）']];
+      if (selCharData) {
+        Object.entries(selCharData.cards).forEach(([key, c]) => {
+          cardOptions.push([key, `${key} / ${c.name}`]);
+        });
+      }
+      const { row: cardRow, sel: cardSel } = makeSelectRow(
+        '⬜ カード', cardOptions, item.cardKey || '',
+        !selCharData,
+        val => {
+          item.cardKey = val || null; item.hiramekiNum = null;
+          renderConfirmCards(currentBlocks, true);
+        }
+      );
+      selects.appendChild(cardRow);
+
+      // X番号選択
+      const xOptions = [['', '（未特定）']];
+      if (selCard) {
+        for (let n = 1; n <= 5; n++) {
+          if (selCard.hirameki[String(n)]) xOptions.push([String(n), `X-${n}`]);
+        }
+        xOptions.push(['6', 'X-6（隠れヒラメキ）']);
+      }
+      const { row: xRow, sel: xSel } = makeSelectRow(
+        '⬜ ヒラメキ', xOptions, item.hiramekiNum ? String(item.hiramekiNum) : '',
+        !selCard,
+        val => {
+          item.hiramekiNum = val ? parseInt(val) : null;
+          renderConfirmCards(currentBlocks, true);
+        }
+      );
+      selects.appendChild(xRow);
+
+      // 隠れヒラメキ選択（X-6の時のみ有効）
+      const showKakure = isX6;
+      const kakureOptions = [['－', '－'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
+      const { row: kakureRow } = makeSelectRow(
+        '⬜ 隠れヒラメキ', showKakure ? kakureOptions : [['－', '－']],
+        showKakure ? (item.kakureEffect || '－') : '－',
+        !showKakure,
+        val => { item.kakureEffect = val === '－' ? null : val; }
+      );
+      selects.appendChild(kakureRow);
+
+      // 神ヒラメキ選択（神様ありの時のみ有効）
+      const shinOptions = [['－', '－'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
+      const { row: shinRow } = makeSelectRow(
+        '⬜ 神ヒラメキ', hasGod ? shinOptions : [['－', '－']],
+        hasGod ? (item.shinEffect || '－') : '－',
+        !hasGod,
+        val => { item.shinEffect = val === '－' ? null : val; }
+      );
+      selects.appendChild(shinRow);
+
+      card.appendChild(selects);
+
+      // OCR生データ（折りたたみ）
+      const ocrToggle = document.createElement('div');
+      ocrToggle.className = 'match-ocr-toggle';
+      ocrToggle.textContent = '▶ OCR生データ（タップで展開）';
+      const ocrContent = document.createElement('div');
+      ocrContent.className = 'match-ocr-content';
+      ocrContent.textContent = ocrEffect || '（テキストなし）';
+      ocrToggle.onclick = () => {
+        const open = ocrContent.style.display === 'block';
+        ocrContent.style.display = open ? 'none' : 'block';
+        ocrToggle.textContent = (open ? '▶' : '▼') + ' OCR生データ（タップで展開）';
+      };
+      card.appendChild(ocrToggle);
+      card.appendChild(ocrContent);
+
+      // フッター（順番・除外）
+      const footer = document.createElement('div');
+      footer.className = 'match-footer';
+
+      const orderBtns = document.createElement('div');
+      orderBtns.className = 'match-order-btns';
       const btnUp = document.createElement('button');
+      btnUp.className = 'match-order-btn';
       btnUp.textContent = '▲';
-      btnUp.style.cssText = 'display:block;width:100%;padding:2px 4px;margin-bottom:2px;border-radius:4px;border:1px solid #444;background:#2a2a2a;color:#888;font-size:11px;cursor:pointer;';
       btnUp.disabled = pos === 0;
-      btnUp.style.opacity = pos === 0 ? '0.3' : '1';
       btnUp.onclick = () => {
         [confirmItems[pos], confirmItems[pos-1]] = [confirmItems[pos-1], confirmItems[pos]];
-        renderConfirmTable(blocks, true);
+        renderConfirmCards(currentBlocks, true);
       };
       const btnDown = document.createElement('button');
+      btnDown.className = 'match-order-btn';
       btnDown.textContent = '▼';
-      btnDown.style.cssText = 'display:block;width:100%;padding:2px 4px;border-radius:4px;border:1px solid #444;background:#2a2a2a;color:#888;font-size:11px;cursor:pointer;';
       btnDown.disabled = pos === confirmItems.length - 1;
-      btnDown.style.opacity = pos === confirmItems.length - 1 ? '0.3' : '1';
       btnDown.onclick = () => {
         [confirmItems[pos], confirmItems[pos+1]] = [confirmItems[pos+1], confirmItems[pos]];
-        renderConfirmTable(blocks, true);
+        renderConfirmCards(currentBlocks, true);
       };
-      tdOrder.appendChild(btnUp);
-      tdOrder.appendChild(btnDown);
+      orderBtns.appendChild(btnUp);
+      orderBtns.appendChild(btnDown);
 
-      // 画像セル
-      const tdImg = document.createElement('td');
-      tdImg.appendChild(previewCanvas);
-
-      // カード名セル
-      const tdName = document.createElement('td');
-      tdName.className = 'confirm-cell-name';
-      tdName.textContent = cardName;
-
-      // コストセル
-      const tdCost = document.createElement('td');
-      tdCost.className = 'confirm-cell-cost';
-      tdCost.style.color = costColor;
-      tdCost.textContent = costText;
-
-      // 神様セル
-      const tdGod = document.createElement('td');
-      tdGod.className = 'confirm-cell-god';
-      tdGod.style.color = godColor;
-      tdGod.textContent = godName === '通常ヒラメキ' ? '🟡 通常' : godName;
-
-      // 除外セル
-      const tdExclude = document.createElement('td');
       const btnExclude = document.createElement('button');
-      btnExclude.textContent = item.excluded ? '✕' : '－';
-      btnExclude.style.cssText = `display:block;width:100%;padding:4px;border-radius:6px;border:1px solid ${item.excluded ? '#f87171' : '#444'};background:${item.excluded ? 'rgba(248,113,113,0.15)' : 'transparent'};color:${item.excluded ? '#f87171' : '#555'};font-size:13px;font-weight:700;cursor:pointer;`;
+      btnExclude.className = 'match-exclude-btn' + (item.excluded ? ' active' : '');
+      btnExclude.textContent = item.excluded ? '✕ 除外中' : '－ 除外';
       btnExclude.onclick = () => {
-        confirmItems[pos].excluded = !confirmItems[pos].excluded;
-        renderConfirmTable(blocks, true);
+        item.excluded = !item.excluded;
+        renderConfirmCards(currentBlocks, true);
       };
-      tdExclude.appendChild(btnExclude);
 
-      tr.appendChild(tdOrder);
-      tr.appendChild(tdImg);
-      tr.appendChild(tdName);
-      tr.appendChild(tdCost);
-      tr.appendChild(tdGod);
-      tr.appendChild(tdExclude);
-      tbody.appendChild(tr);
+      footer.appendChild(orderBtns);
+      footer.appendChild(btnExclude);
+      card.appendChild(footer);
+
+      container.appendChild(card);
     });
 
-    table.appendChild(tbody);
     document.getElementById('confirmTableArea').style.display = 'block';
   }
 
@@ -1276,46 +1646,59 @@ const COST_TEMPLATE_B64 = {
   }
 
   function mergeData() {
-    const raw = shortcutRawText.trim();
-    if (!raw) { alert('テキストファイルを先にアップロードしてね！'); return; }
-
-    const blocks = parseShortcutText(raw);
+    if (!shortcutRawText.trim()) { alert('テキストファイルを先にアップロードしてね！'); return; }
     const lines = [];
-
-    // confirmItemsの順番・除外フラグに従って出力
     const activeItems = confirmItems.filter(item => !item.excluded);
+
     activeItems.forEach((item, outputIdx) => {
       const r = results[item.resultIdx];
-      const block = blocks[r.index];
       const godName = r.winner === '通常ヒラメキ' ? '通常ヒラメキ' : r.winner;
-
-      lines.push(`#${outputIdx + 1}.`);
-      lines.push('##==神の名前==');
-      lines.push(`【${godName}】`);
 
       // コスト
       const digitEl = document.getElementById(`costDigit-${item.resultIdx}`);
       const colorEl = document.getElementById(`costColor-${item.resultIdx}`);
       const costDigitVal = (digitEl && digitEl.value) ? digitEl.value : '?';
       const costColorVal = (colorEl && colorEl.value) ? colorEl.value : '?';
+
+      // JSON照合結果
+      const selCharData = characterData[item.charName];
+      const selCard     = selCharData ? selCharData.cards[item.cardKey] : null;
+      const isX6        = item.hiramekiNum === 6;
+      const selHirameki = selCard && !isX6 ? selCard.hirameki[String(item.hiramekiNum)] : null;
+
+      lines.push(`#${outputIdx + 1}.`);
+      lines.push('##==神の名前==');
+      lines.push(`【${godName}】`);
       lines.push('##==コスト==');
       lines.push(`${costDigitVal}/${costColorVal}`);
 
-      if (!block) {
-        lines.push('（テキストなし）');
-        lines.push('===next===');
-        return;
+      if (selCard) {
+        lines.push('##==キャラクター==');
+        lines.push(item.charName);
+        lines.push('##==カード==');
+        lines.push(`${item.cardKey} / ${selCard.name} / コスト${isX6 ? selCard.cost : selHirameki?.cost ?? '?'} / ${selCard.kind} / X-${item.hiramekiNum}`);
+        lines.push('##==ヒラメキ効果==');
+        lines.push(isX6 ? selCard.baseEffect : (selHirameki?.effect ?? '（不明）'));
+        if (isX6 && item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push('##==隠れヒラメキ追加効果==');
+          lines.push(hiramekiEffects[item.kakureEffect] || item.kakureEffect);
+        }
+        if (godName !== '通常ヒラメキ' && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('##==神ヒラメキ追加効果==');
+          lines.push(hiramekiEffects[item.shinEffect] || item.shinEffect);
+        }
+      } else {
+        // 照合なし：OCRテキストをそのまま出力
+        const block = currentBlocks[r.index];
+        if (block) {
+          lines.push('##==カード名・種別==');
+          block.nameLines.forEach(l => lines.push(l));
+          lines.push('##==カード効果・ヒラメキ==');
+          const { mainLines, godEffect } = extractGodEffect(block.effectLines);
+          mainLines.forEach(l => lines.push(l));
+          if (godEffect) lines.push(`→ ${godEffect}`);
+        }
       }
-
-      const { nameLines, effectLines } = block;
-
-      lines.push('##==カード名・種別==');
-      nameLines.forEach(l => lines.push(l));
-
-      lines.push('##==カード効果・ヒラメキ==');
-      const { mainLines, godEffect } = extractGodEffect(effectLines);
-      mainLines.forEach(l => lines.push(l));
-      if (godEffect) lines.push(`→ ${godEffect}`);
 
       lines.push('===next===');
     });
@@ -1393,6 +1776,7 @@ const COST_TEMPLATE_B64 = {
   function resetTool() {
     results = [];
     confirmItems = [];
+    currentBlocks = {};
     shortcutRawText = '';
     document.getElementById('fileInput').value = '';
     document.getElementById('shortcutFile').value = '';
@@ -1403,7 +1787,7 @@ const COST_TEMPLATE_B64 = {
     document.getElementById('mergeResult').style.display    = 'none';
     document.getElementById('shortcutLoaded').style.display = 'none';
     document.getElementById('confirmTableArea').style.display = 'none';
-    document.getElementById('confirmTable').innerHTML = '';
+    document.getElementById('confirmCards').innerHTML = '';
     document.getElementById('resultList').innerHTML = '';
     document.getElementById('costList').innerHTML = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
