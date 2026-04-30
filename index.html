@@ -1345,6 +1345,26 @@ const COST_TEMPLATE_B64 = {
         item.cardKey     = top.cardKey;
         item.hiramekiNum = top.hiramekiNum;
         item.matchScore  = top.score;
+
+        // 余り効果を照合（神ヒラメキ・隠れヒラメキの自動候補）
+        const baseNorm = normalizeOCR(top.effect);
+        const ocrNorm  = normalizeOCR(ocrEffect);
+        // ベース効果を除いた残りテキストを生成
+        const remainder = ocrNorm.replace(baseNorm, '').trim();
+        if (remainder.length > 1) {
+          let bestKey = null, bestScore = 0;
+          for (const [key, val] of Object.entries(hiramekiEffects)) {
+            const s = similarity(remainder, normalizeOCR(val));
+            if (s > bestScore) { bestScore = s; bestKey = key; }
+          }
+          if (bestKey && bestScore > 0.2) {
+            if (top.isX6) {
+              item.kakureEffect = bestKey;
+            } else if (hasGod) {
+              item.shinEffect = bestKey;
+            }
+          }
+        }
       }
 
       // コスト情報
