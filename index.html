@@ -141,6 +141,7 @@ body {
 .god-キルケン   { border-color: #E5B1FA !important; color: #E5B1FA !important; }
 .god-ニヒルム   { border-color: #86CDF4 !important; color: #86CDF4 !important; }
 .god-ヴィトル   { border-color: #AB9180 !important; color: #AB9180 !important; }
+.god-@?#$      { border-color: #6020E0 !important; color: #6020E0 !important; }
 .god-通常ヒラメキ { border-color: #fbbf24 !important; color: #fbbf24 !important; }
 /* ── コスト確認セクション ── */
 .cost-section {
@@ -678,6 +679,7 @@ textarea::placeholder { color: #888888; }
     キルケン:   ['#E5B1FA','#FEECE8','#F0C9B6','#CCBFFB','#FBE5CB'],
     ニヒルム:   ['#86CDF4','#7BB1DF','#A3E8FD','#447AA5','#629AC9'],
     ヴィトル:   ['#AB9180','#6A5D63','#927D78','#988792','#836D69'],
+    '@?#$':    ['#6020E0','#8040E0','#E0C0E0','#6020C0','#C0A0E0','#A080C0','#A080E0'],
   };
   const GOD_NAMES = Object.keys(GODS);
 
@@ -1315,7 +1317,7 @@ const COST_TEMPLATE_B64 = {
   ============================================================ */
   const GOD_COLORS = {
     ディアロス: '#F3BA88', セクレド: '#78DEC1', キルケン: '#E5B1FA',
-    ニヒルム: '#86CDF4', ヴィトル: '#AB9180', 通常ヒラメキ: '#fbbf24',
+    ニヒルム: '#86CDF4', ヴィトル: '#AB9180', '@?#$': '#6020E0', 通常ヒラメキ: '#fbbf24',
   };
 
   function renderConfirmCards(blocks, preserveItems) {
