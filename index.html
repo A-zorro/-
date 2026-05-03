@@ -907,9 +907,15 @@ const COST_TEMPLATE_B64 = {
   ============================================================ */
   function normalizeOCR(text) {
     let result = text || '';
+    // 誤認識テーブルで直接置換
     for (const [wrong, correct] of Object.entries(ocrDict.corrections || {})) {
       result = result.replaceAll(wrong, correct);
     }
+    // 句読点（、）を除外して照合する
+    // 理由：ゲーム画像に「、」がない箇所にClaudeが勝手に補完したテキストが
+    // JSONやPDFに混入している可能性があるため、比較時のみ除外して精度を保つ。
+    // 記録テキスト自体は変更しない。
+    result = result.replace(/、/g, '');
     return result.replace(/\s+/g, '');
   }
 
