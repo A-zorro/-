@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.1</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.2</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -1048,7 +1048,16 @@ const COST_TEMPLATE_B64 = {
       // テンプレマッチング優先 → 失敗時に特徴点検出フォールバック
       const tmplResult  = matchCostDigitTemplate(costCanvas, costColor);
       const featResult  = detectCostDigit(costCanvas, costColor);
-      costDigit = tmplResult ?? featResult ?? null;
+      let rawDigit = tmplResult ?? featResult ?? null;
+
+      // コスト自動識別結果が4以上の場合は強制的に0として扱う。
+      // 理由：4以上のテンプレートは精度が低く誤判断が多いため。
+      // ユーザーが手動で4以上を選択した場合はその値を優先する（UI側で対応）。
+      if (rawDigit !== null && !isNaN(rawDigit) && Number(rawDigit) >= 4) {
+        rawDigit = 0;
+      }
+
+      costDigit = rawDigit;
       costTmpl  = tmplResult;
       costFeat  = featResult;
     }
@@ -1176,7 +1185,9 @@ const COST_TEMPLATE_B64 = {
       grid.appendChild(prev);
 
       // 初期選択: テンプレ優先→特徴点→null
+      // ※自動識別結果が4以上の場合は0として扱う（processFile側でも同様の処理済み）
       let selDigit = r.costTmpl ?? r.costFeat ?? null;
+      if (selDigit !== null && !isNaN(selDigit) && Number(selDigit) >= 4) selDigit = 0;
       // colorIdxをupdateDispより前に定義（TDZ回避）
       let colorIdx = Math.max(0, COLOR_STATES.findIndex(s => s.value === r.costColor));
 
