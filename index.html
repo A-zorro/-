@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.0</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.1</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -937,6 +937,10 @@ const COST_TEMPLATE_B64 = {
   function matchHirameki(ocrEffectText, ocrKind) {
     const norm = normalizeOCR(ocrEffectText);
     const candidates = [];
+
+    // ヒラメキリストの全効果テキストリスト（組み合わせ用）
+    const effectValues = Object.values(hiramekiEffects);
+
     for (const [charName, charData] of Object.entries(characterData)) {
       if (!charData.cards) continue;
       for (const [cardKey, card] of Object.entries(charData.cards)) {
@@ -945,16 +949,34 @@ const COST_TEMPLATE_B64 = {
           const h = card.hirameki[String(n)];
           if (!h) continue;
           const hiramekiKind = h.kind || card.kind;
-          let score = similarity(norm, normalizeOCR(h.effect));
-          // 種別一致でスコアボーナス
-          if (ocrKind && hiramekiKind === ocrKind) score = Math.min(1, score + 0.1);
-          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
+          const baseNorm = normalizeOCR(h.effect);
+
+          // ① ベース効果単体のスコア
+          let bestScore = similarity(norm, baseNorm);
+
+          // ② ベース効果＋追加効果の組み合わせで最高スコアを探す
+          for (const addEffect of effectValues) {
+            const combined = normalizeOCR(h.effect + addEffect);
+            const s = similarity(norm, combined);
+            if (s > bestScore) bestScore = s;
+          }
+
+          // 種別一致ボーナス
+          if (ocrKind && hiramekiKind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
+
+          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score: bestScore, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
         }
-        // X-6：基本効果と比較（種別はカード基本種別）
-        const baseScore = similarity(norm, normalizeOCR(card.baseEffect));
-        let x6score = baseScore * 0.9;
-        if (ocrKind && card.kind === ocrKind) x6score = Math.min(1, x6score + 0.1);
-        candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: x6score, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+
+        // X-6：基本効果と比較
+        const baseNorm = normalizeOCR(card.baseEffect);
+        let bestX6 = similarity(norm, baseNorm);
+        for (const addEffect of effectValues) {
+          const combined = normalizeOCR(card.baseEffect + addEffect);
+          const s = similarity(norm, combined) * 0.9;
+          if (s > bestX6) bestX6 = s;
+        }
+        if (ocrKind && card.kind === ocrKind) bestX6 = Math.min(1, bestX6 + 0.1);
+        candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: bestX6, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
       }
     }
     return candidates.sort((a, b) => b.score - a.score);
@@ -1407,19 +1429,37 @@ const COST_TEMPLATE_B64 = {
       let formattedText = '';
       if (selCard && selHirameki) {
         const hiramekiKind = selHirameki.kind || selCard.kind;
-        formattedText = [
+        const lines = [
           `${item.charName} / ${item.cardKey} / ${selCard.name}`,
           `コスト${selHirameki.cost} / ${hiramekiKind} / X-${item.hiramekiNum}`,
           '',
           selHirameki.effect,
-        ].join('\n');
+        ];
+        if (isX6 && item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push('');
+          lines.push(`[隠れ] ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
+        }
+        if (hasGod && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('');
+          lines.push(`[神] ${hiramekiEffects[item.shinEffect] || item.shinEffect}`);
+        }
+        formattedText = lines.join('\n');
       } else if (selCard && isX6) {
-        formattedText = [
+        const lines = [
           `${item.charName} / ${item.cardKey} / ${selCard.name}`,
           `コスト${selCard.cost} / ${selCard.kind} / X-6（隠れヒラメキ）`,
           '',
           selCard.baseEffect,
-        ].join('\n');
+        ];
+        if (item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push('');
+          lines.push(`[隠れ] ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
+        }
+        if (hasGod && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('');
+          lines.push(`[神] ${hiramekiEffects[item.shinEffect] || item.shinEffect}`);
+        }
+        formattedText = lines.join('\n');
       } else {
         formattedText = '（照合結果なし）\n\n' + ocrEffect;
       }
