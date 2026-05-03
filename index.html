@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.2</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.3</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -1442,7 +1442,7 @@ const COST_TEMPLATE_B64 = {
         const hiramekiKind = selHirameki.kind || selCard.kind;
         const lines = [
           `${item.charName} / ${item.cardKey} / ${selCard.name}`,
-          `コスト${selHirameki.cost} / ${hiramekiKind} / X-${item.hiramekiNum}`,
+          `コスト${selHirameki.cost} / ${hiramekiKind} / ${item.cardKey}-${item.hiramekiNum}`,
           '',
           selHirameki.effect,
         ];
@@ -1458,7 +1458,7 @@ const COST_TEMPLATE_B64 = {
       } else if (selCard && isX6) {
         const lines = [
           `${item.charName} / ${item.cardKey} / ${selCard.name}`,
-          `コスト${selCard.cost} / ${selCard.kind} / X-6（隠れヒラメキ）`,
+          `コスト${selCard.cost} / ${selCard.kind} / ${item.cardKey}-6（隠れヒラメキ）`,
           '',
           selCard.baseEffect,
         ];
@@ -1596,9 +1596,9 @@ const COST_TEMPLATE_B64 = {
       const xOptions = [['', '（未特定）']];
       if (selCard) {
         for (let n = 1; n <= 5; n++) {
-          if (selCard.hirameki[String(n)]) xOptions.push([String(n), `X-${n}`]);
+          if (selCard.hirameki[String(n)]) xOptions.push([String(n), `${item.cardKey}-${n}`]);
         }
-        xOptions.push(['6', 'X-6（隠れヒラメキ）']);
+        xOptions.push(['6', `${item.cardKey}-6（隠れヒラメキ）`]);
       }
       const { row: xRow, sel: xSel } = makeSelectRow(
         '⬜ ヒラメキ', xOptions, item.hiramekiNum ? String(item.hiramekiNum) : '',
@@ -1767,7 +1767,7 @@ const COST_TEMPLATE_B64 = {
         lines.push('##==キャラクター==');
         lines.push(item.charName);
         lines.push('##==カード==');
-        lines.push(`${item.cardKey} / ${selCard.name} / コスト${isX6 ? selCard.cost : selHirameki?.cost ?? '?'} / ${selCard.kind} / X-${item.hiramekiNum}`);
+        lines.push(`${item.cardKey} / ${selCard.name} / コスト${isX6 ? selCard.cost : selHirameki?.cost ?? '?'} / ${selCard.kind} / ${item.cardKey}-${item.hiramekiNum}`);
         lines.push('##==ヒラメキ効果==');
         lines.push(isX6 ? selCard.baseEffect : (selHirameki?.effect ?? '（不明）'));
         if (isX6 && item.kakureEffect && item.kakureEffect !== '－') {
