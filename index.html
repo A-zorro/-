@@ -136,12 +136,7 @@ body {
 }
 
 /* 神様カラー適用 */
-.god-ディアロス { border-color: #F3BA88 !important; color: #F3BA88 !important; }
-.god-セクレド   { border-color: #78DEC1 !important; color: #78DEC1 !important; }
-.god-キルケン   { border-color: #E5B1FA !important; color: #E5B1FA !important; }
-.god-ニヒルム   { border-color: #86CDF4 !important; color: #86CDF4 !important; }
-.god-ヴィトル   { border-color: #AB9180 !important; color: #AB9180 !important; }
-.god-@?#$      { border-color: #6020E0 !important; color: #6020E0 !important; }
+
 .god-通常ヒラメキ { border-color: #fbbf24 !important; color: #fbbf24 !important; }
 /* ── コスト確認セクション ── */
 .cost-section {
@@ -593,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v2.9</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.0</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -1260,8 +1255,9 @@ const COST_TEMPLATE_B64 = {
 
       // セレクト
       const select = document.createElement('select');
-      select.className = `item-select god-${r.winner}`;
-      // 神様5種 + 通常ヒラメキ
+      select.className = 'item-select';
+      applyGodStyle(select, r.winner);
+      // 神様6種 + 通常ヒラメキ
       [...GOD_NAMES, '通常ヒラメキ'].forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
@@ -1271,7 +1267,7 @@ const COST_TEMPLATE_B64 = {
       });
       select.addEventListener('change', () => {
         results[idx].winner = select.value;
-        select.className = `item-select god-${select.value}`;
+        applyGodStyle(select, select.value);
       });
 
       // 信頼度
@@ -1324,6 +1320,12 @@ const COST_TEMPLATE_B64 = {
     ディアロス: '#F3BA88', セクレド: '#78DEC1', キルケン: '#E5B1FA',
     ニヒルム: '#86CDF4', ヴィトル: '#AB9180', '@?#$': '#6020E0', 通常ヒラメキ: '#fbbf24',
   };
+
+  function applyGodStyle(el, godName) {
+    const color = GOD_COLORS[godName] || '#888888';
+    el.style.borderColor = color;
+    el.style.color = color;
+  }
 
   function renderConfirmCards(blocks, preserveItems) {
     if (!preserveItems) {
