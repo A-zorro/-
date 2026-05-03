@@ -933,7 +933,7 @@ const COST_TEMPLATE_B64 = {
     return inter / (ba.size + bb.size - inter);
   }
 
-  function matchHirameki(ocrEffectText) {
+  function matchHirameki(ocrEffectText, ocrKind) {
     const norm = normalizeOCR(ocrEffectText);
     const candidates = [];
     for (const [charName, charData] of Object.entries(characterData)) {
@@ -943,12 +943,17 @@ const COST_TEMPLATE_B64 = {
         for (let n = 1; n <= 5; n++) {
           const h = card.hirameki[String(n)];
           if (!h) continue;
-          const score = similarity(norm, normalizeOCR(h.effect));
-          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score, isX6: false, effect: h.effect, cost: h.cost, kind: card.kind });
+          const hiramekiKind = h.kind || card.kind;
+          let score = similarity(norm, normalizeOCR(h.effect));
+          // 種別一致でスコアボーナス
+          if (ocrKind && hiramekiKind === ocrKind) score = Math.min(1, score + 0.1);
+          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
         }
-        // X-6：基本効果と比較
+        // X-6：基本効果と比較（種別はカード基本種別）
         const baseScore = similarity(norm, normalizeOCR(card.baseEffect));
-        candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: baseScore * 0.9, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+        let x6score = baseScore * 0.9;
+        if (ocrKind && card.kind === ocrKind) x6score = Math.min(1, x6score + 0.1);
+        candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: x6score, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
       }
     }
     return candidates.sort((a, b) => b.score - a.score);
@@ -1337,8 +1342,12 @@ const COST_TEMPLATE_B64 = {
       const block = blocks[r.index];
       const ocrEffect = block ? block.effectLines.join('\n') : '';
 
+      // OCRテキストから種別を抽出
+      const ocrKindRaw = block ? block.nameLines.find(l => ['攻撃','スキル','強化'].includes(l.trim())) : null;
+      const ocrKind = ocrKindRaw ? ocrKindRaw.trim() : null;
+
       // 照合実行
-      const matches = matchHirameki(ocrEffect);
+      const matches = matchHirameki(ocrEffect, ocrKind);
       const top = matches[0] || null;
 
       // 神様（auto-selectionより前に定義）
@@ -1389,9 +1398,10 @@ const COST_TEMPLATE_B64 = {
       // 整形済みテキスト
       let formattedText = '';
       if (selCard && selHirameki) {
+        const hiramekiKind = selHirameki.kind || selCard.kind;
         formattedText = [
           `${item.charName} / ${item.cardKey} / ${selCard.name}`,
-          `コスト${selHirameki.cost} / ${selCard.kind} / X-${item.hiramekiNum}`,
+          `コスト${selHirameki.cost} / ${hiramekiKind} / X-${item.hiramekiNum}`,
           '',
           selHirameki.effect,
         ].join('\n');
