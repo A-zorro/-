@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.3</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.4</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -896,6 +896,11 @@ const COST_TEMPLATE_B64 = {
         characterData[name] = await res.json();
       }));
       console.log('データ読み込み完了:', Object.keys(characterData));
+
+      // データ読み込み完了後、すでにテキストファイルが読み込まれていれば再レンダリング
+      if (Object.keys(currentBlocks).length > 0 && confirmItems.length > 0) {
+        renderConfirmCards(currentBlocks, false);
+      }
     } catch (e) {
       console.warn('データ読み込みエラー（照合機能は限定動作）:', e);
     }
