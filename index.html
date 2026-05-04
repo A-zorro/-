@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.6</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.7</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -1441,7 +1441,8 @@ const COST_TEMPLATE_B64 = {
       confirmItems = results.map((_, idx) => ({
         resultIdx: idx, excluded: false,
         charName: null, cardKey: null, hiramekiNum: null,
-        kakureEffect: null, shinEffect: null, matchScore: 0
+        kakureEffect: null, shinEffect: null, matchScore: 0,
+        sharedCardName: null
       }));
     }
 
@@ -1509,9 +1510,8 @@ const COST_TEMPLATE_B64 = {
       // 整形済みテキスト
       let formattedText = '';
       if (cardMode === 'shared') {
-        // 共用版：カード名＋選択した通常ヒラメキ効果＋神ヒラメキ
         const block = currentBlocks[r.index];
-        const sharedCardName = (block && block.nameLines[0]) ? block.nameLines[0] : '（未取得）';
+        const sharedCardName = item.sharedCardName || (block && block.nameLines[0]) || '（未取得）';
         const lines = [`カード: ${sharedCardName}`];
         if (item.kakureEffect && item.kakureEffect !== '－') {
           lines.push(`通常ヒラメキ: ${item.kakureEffect} / ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
@@ -1648,21 +1648,25 @@ const COST_TEMPLATE_B64 = {
       if (cardMode === 'shared') {
         // ── 共用カード版 ──
 
-        // カード名（テキストから表示のみ）
+        // カード名（テキスト入力で修正可能）
         const nameRow = document.createElement('div');
         nameRow.className = 'match-select-row';
         const nameLbl = document.createElement('div');
         nameLbl.className = 'match-select-label';
         nameLbl.textContent = '⬜ カード名';
-        const nameVal = document.createElement('div');
-        nameVal.style.cssText = 'flex:1;font-size:11px;color:#ccc;padding:4px 6px;';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'match-select';
         const block = currentBlocks[r.index];
-        nameVal.textContent = (block && block.nameLines[0]) ? block.nameLines[0] : '（未取得）';
+        nameInput.value = item.sharedCardName || (block && block.nameLines[0]) || '';
+        nameInput.addEventListener('input', () => {
+          item.sharedCardName = nameInput.value;
+        });
         nameRow.appendChild(nameLbl);
-        nameRow.appendChild(nameVal);
+        nameRow.appendChild(nameInput);
         selects.appendChild(nameRow);
 
-        // ヒラメキ効果（ナンバリングリストから選択）
+        // 通常ヒラメキ（ナンバリングリストから選択）
         const effectOptions = [['', '（未特定）'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
         const { row: effectRow } = makeSelectRow(
           '⬜ 通常ヒラメキ', effectOptions, item.kakureEffect || '',
@@ -1670,10 +1674,6 @@ const COST_TEMPLATE_B64 = {
           val => { item.kakureEffect = val || null; renderConfirmCards(currentBlocks, true); }
         );
         selects.appendChild(effectRow);
-
-        // 隠れヒラメキ：共用版は常に－固定
-        const { row: kakureRow } = makeSelectRow('⬜ 隠れヒラメキ', [['－', '－']], '－', true, () => {});
-        selects.appendChild(kakureRow);
 
         // 神ヒラメキ：神様ありの時のみ有効
         const shinOpts = [['－', '－'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
