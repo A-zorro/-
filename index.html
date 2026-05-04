@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.4</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.5</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -628,11 +628,32 @@ textarea::placeholder { color: #888888; }
 
 <div class="card" id="mergeSection" style="display:none;">
   <div class="card-title">STEP 4 ── ショートカットテキストと合成</div>
+
+  <!-- カード種別トグル -->
+
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <button id="toggleCharBtn" onclick="setCardMode('character')"
+      style="flex:1;padding:8px;border-radius:8px;border:2px solid #78DEC1;background:rgba(120,222,193,0.15);color:#78DEC1;font-size:12px;font-weight:700;cursor:pointer;">
+      🎭 キャラ版
+    </button>
+    <button id="toggleSharedBtn" onclick="setCardMode('shared')"
+      style="flex:1;padding:8px;border-radius:8px;border:1px solid #444;background:transparent;color:#666;font-size:12px;font-weight:700;cursor:pointer;">
+      🃏 共用カード版
+    </button>
+  </div>
+
   <label class="upload-btn" style="width:100%; min-height:64px;">
     <input type="file" id="shortcutFile" accept="text/plain,.txt" onchange="loadShortcutFile(event)">
     <span class="upload-btn-icon">📄</span>
     <span class="upload-btn-label">テキストファイルをアップロード</span>
   </label>
+
+  <!-- ローディング表示 -->
+
+  <div id="dataLoadingMsg" style="display:none;margin-top:10px;padding:10px;background:#1e2a1e;border:1px solid #34d399;border-radius:8px;color:#34d399;font-size:12px;text-align:center;">
+    ⏳ 照合データ読み込み中... 完了後に自動で照合が始まるよ！
+  </div>
+
   <div id="shortcutLoaded" style="display:none; margin-top:10px;">
     <div class="item-conf" id="shortcutFileName"></div>
     <div id="confirmTableArea" style="display:none; margin-top:10px;">
@@ -871,6 +892,33 @@ const COST_TEMPLATE_B64 = {
   let confirmItems = []; // { resultIdx, excluded, charName, cardKey, hiramekiNum, kakureEffect, shinEffect, matchScore }
   let currentBlocks = {}; // parseShortcutTextの結果を保持
   let patternMode = 'auto'; // 'auto' | 'p2' | 'p1'
+  let cardMode = 'character'; // 'character' | 'shared'
+  let dataReady = false; // JSONロード完了フラグ
+
+  function setCardMode(mode) {
+    cardMode = mode;
+    const charBtn   = document.getElementById('toggleCharBtn');
+    const sharedBtn = document.getElementById('toggleSharedBtn');
+    if (mode === 'character') {
+      charBtn.style.borderColor   = '#78DEC1';
+      charBtn.style.background    = 'rgba(120,222,193,0.15)';
+      charBtn.style.color         = '#78DEC1';
+      sharedBtn.style.borderColor = '#444';
+      sharedBtn.style.background  = 'transparent';
+      sharedBtn.style.color       = '#666';
+    } else {
+      sharedBtn.style.borderColor = '#fbbf24';
+      sharedBtn.style.background  = 'rgba(251,191,36,0.15)';
+      sharedBtn.style.color       = '#fbbf24';
+      charBtn.style.borderColor   = '#444';
+      charBtn.style.background    = 'transparent';
+      charBtn.style.color         = '#666';
+    }
+    // モード切替時にテキスト読み込み済みなら再レンダリング
+    if (dataReady && Object.keys(currentBlocks).length > 0) {
+      renderConfirmCards(currentBlocks, false);
+    }
+  }
 
   /* ============================================================
      JSONデータ読み込み
@@ -895,14 +943,23 @@ const COST_TEMPLATE_B64 = {
         const res = await fetch(DATA_BASE + encodeURIComponent(name + '.json'));
         characterData[name] = await res.json();
       }));
-      console.log('データ読み込み完了:', Object.keys(characterData));
 
-      // データ読み込み完了後、すでにテキストファイルが読み込まれていれば再レンダリング
+      console.log('データ読み込み完了:', Object.keys(characterData));
+      dataReady = true;
+
+      // ローディング表示を消す
+      const loadingMsg = document.getElementById('dataLoadingMsg');
+      if (loadingMsg) loadingMsg.style.display = 'none';
+
+      // テキストファイルが先に読み込まれていた場合は再レンダリング
       if (Object.keys(currentBlocks).length > 0 && confirmItems.length > 0) {
         renderConfirmCards(currentBlocks, false);
       }
     } catch (e) {
       console.warn('データ読み込みエラー（照合機能は限定動作）:', e);
+      dataReady = true; // エラー時もフラグを立てて処理を止めない
+      const loadingMsg = document.getElementById('dataLoadingMsg');
+      if (loadingMsg) loadingMsg.style.display = 'none';
     }
   }
   loadDataFiles();
@@ -1352,7 +1409,15 @@ const COST_TEMPLATE_B64 = {
       document.getElementById('shortcutLoaded').style.display = 'block';
       document.getElementById('mergeResult').style.display    = 'none';
       currentBlocks = parseShortcutText(shortcutRawText);
-      renderConfirmCards(currentBlocks);
+
+      if (dataReady) {
+        // JSON読み込み済み → 即レンダリング
+        document.getElementById('dataLoadingMsg').style.display = 'none';
+        renderConfirmCards(currentBlocks);
+      } else {
+        // JSON未完了 → ローディング表示して待機（loadDataFiles完了時に自動レンダリング）
+        document.getElementById('dataLoadingMsg').style.display = 'block';
+      }
     };
     reader.readAsText(file, 'UTF-8');
   }
@@ -1443,7 +1508,20 @@ const COST_TEMPLATE_B64 = {
 
       // 整形済みテキスト
       let formattedText = '';
-      if (selCard && selHirameki) {
+      if (cardMode === 'shared') {
+        // 共用版：カード名＋選択した通常ヒラメキ効果＋神ヒラメキ
+        const block = currentBlocks[r.index];
+        const sharedCardName = (block && block.nameLines[0]) ? block.nameLines[0] : '（未取得）';
+        const lines = [`カード: ${sharedCardName}`];
+        if (item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push(`通常ヒラメキ: ${item.kakureEffect} / ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
+        }
+        if (hasGod && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('');
+          lines.push(`[神] ${hiramekiEffects[item.shinEffect] || item.shinEffect}`);
+        }
+        formattedText = lines.join('\n');
+      } else if (selCard && selHirameki) {
         const hiramekiKind = selHirameki.kind || selCard.kind;
         const lines = [
           `${item.charName} / ${item.cardKey} / ${selCard.name}`,
@@ -1544,7 +1622,49 @@ const COST_TEMPLATE_B64 = {
       const selects = document.createElement('div');
       selects.className = 'match-selects';
 
-      // ヘルパー：select行を作る
+      if (cardMode === 'shared') {
+        // ── 共用カード版 ──
+
+        // カード名（テキストから表示のみ）
+        const nameRow = document.createElement('div');
+        nameRow.className = 'match-select-row';
+        const nameLbl = document.createElement('div');
+        nameLbl.className = 'match-select-label';
+        nameLbl.textContent = '⬜ カード名';
+        const nameVal = document.createElement('div');
+        nameVal.style.cssText = 'flex:1;font-size:11px;color:#ccc;padding:4px 6px;';
+        const block = currentBlocks[r.index];
+        nameVal.textContent = (block && block.nameLines[0]) ? block.nameLines[0] : '（未取得）';
+        nameRow.appendChild(nameLbl);
+        nameRow.appendChild(nameVal);
+        selects.appendChild(nameRow);
+
+        // ヒラメキ効果（ナンバリングリストから選択）
+        const effectOptions = [['', '（未特定）'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
+        const { row: effectRow } = makeSelectRow(
+          '⬜ 通常ヒラメキ', effectOptions, item.kakureEffect || '',
+          false,
+          val => { item.kakureEffect = val || null; renderConfirmCards(currentBlocks, true); }
+        );
+        selects.appendChild(effectRow);
+
+        // 隠れヒラメキ：共用版は常に－固定
+        const { row: kakureRow } = makeSelectRow('⬜ 隠れヒラメキ', [['－', '－']], '－', true, () => {});
+        selects.appendChild(kakureRow);
+
+        // 神ヒラメキ：神様ありの時のみ有効
+        const shinOpts = [['－', '－'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
+        const { row: shinRow } = makeSelectRow(
+          '⬜ 神ヒラメキ', hasGod ? shinOpts : [['－', '－']],
+          hasGod ? (item.shinEffect || '－') : '－',
+          !hasGod,
+          val => { item.shinEffect = val === '－' ? null : val; renderConfirmCards(currentBlocks, true); }
+        );
+        selects.appendChild(shinRow);
+
+      } else {
+        // ── キャラ版 ──
+
       function makeSelectRow(label, options, selectedVal, disabled, onChange) {
         const row = document.createElement('div');
         row.className = 'match-select-row';
@@ -1635,6 +1755,8 @@ const COST_TEMPLATE_B64 = {
         val => { item.shinEffect = val === '－' ? null : val; }
       );
       selects.appendChild(shinRow);
+
+      } // end キャラ版 else
 
       card.appendChild(selects);
 
