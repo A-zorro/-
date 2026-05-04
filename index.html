@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.5</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.6</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -1622,6 +1622,29 @@ const COST_TEMPLATE_B64 = {
       const selects = document.createElement('div');
       selects.className = 'match-selects';
 
+      // ヘルパー：select行を作る（キャラ版・共用版共通）
+      function makeSelectRow(label, options, selectedVal, disabled, onChange) {
+        const row = document.createElement('div');
+        row.className = 'match-select-row';
+        const lbl = document.createElement('div');
+        lbl.className = 'match-select-label';
+        lbl.textContent = label;
+        const sel = document.createElement('select');
+        sel.className = 'match-select';
+        sel.disabled = disabled;
+        options.forEach(([val, text]) => {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = text;
+          if (val === selectedVal) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        if (!disabled) sel.addEventListener('change', () => onChange(sel.value));
+        row.appendChild(lbl);
+        row.appendChild(sel);
+        return { row, sel };
+      }
+
       if (cardMode === 'shared') {
         // ── 共用カード版 ──
 
@@ -1664,28 +1687,6 @@ const COST_TEMPLATE_B64 = {
 
       } else {
         // ── キャラ版 ──
-
-      function makeSelectRow(label, options, selectedVal, disabled, onChange) {
-        const row = document.createElement('div');
-        row.className = 'match-select-row';
-        const lbl = document.createElement('div');
-        lbl.className = 'match-select-label';
-        lbl.textContent = label;
-        const sel = document.createElement('select');
-        sel.className = 'match-select';
-        sel.disabled = disabled;
-        options.forEach(([val, text]) => {
-          const opt = document.createElement('option');
-          opt.value = val;
-          opt.textContent = text;
-          if (val === selectedVal) opt.selected = true;
-          sel.appendChild(opt);
-        });
-        if (!disabled) sel.addEventListener('change', () => onChange(sel.value));
-        row.appendChild(lbl);
-        row.appendChild(sel);
-        return { row, sel };
-      }
 
       // キャラクター選択
       const charOptions = [['', '（未特定）'], ...Object.keys(characterData).map(n => [n, n])];
