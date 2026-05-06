@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.11</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.12</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -1568,6 +1568,9 @@ const COST_TEMPLATE_B64 = {
               item.kakureEffect = bestKey;
             } else if (hasGod) {
               item.shinEffect = bestKey;
+            } else if (cardMode === 'shared') {
+              // 共用版の通常ヒラメキ（神なし）
+              item.kakureEffect = bestKey;
             }
           }
         }
