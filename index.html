@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.9</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.10</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -653,6 +653,14 @@ textarea::placeholder { color: #888888; }
   <div id="dataLoadingMsg" style="display:none;margin-top:10px;padding:10px;background:#1e2a1e;border:1px solid #34d399;border-radius:8px;color:#34d399;font-size:12px;text-align:center;">
     ⏳ 照合データ読み込み中... 完了後に自動で照合が始まるよ！
   </div>
+
+  <!-- デバッグパネル -->
+
+  <div id="debugPanel" style="display:none;margin-top:10px;padding:10px;background:#1a1a2e;border:1px solid #e040fb;border-radius:8px;font-size:11px;color:#e0e0e0;white-space:pre-wrap;word-break:break-all;"></div>
+  <button onclick="document.getElementById('debugPanel').style.display = document.getElementById('debugPanel').style.display === 'none' ? 'block' : 'none';"
+    style="margin-top:8px;padding:6px 14px;background:#2a1a3e;border:1px solid #e040fb;border-radius:8px;color:#e040fb;font-size:11px;cursor:pointer;">
+    🔍 デバッグ情報
+  </button>
 
   <div id="shortcutLoaded" style="display:none; margin-top:10px;">
     <div class="item-conf" id="shortcutFileName"></div>
@@ -929,31 +937,54 @@ const COST_TEMPLATE_B64 = {
   let hiramekiEffects = {}; // { '001-01': '効果テキスト', ... }
   let ocrDict = { corrections: {}, terms: [] };
 
+  function debugLog(msg) {
+    const panel = document.getElementById('debugPanel');
+    if (panel) panel.textContent += msg + '\n';
+    console.log(msg);
+  }
+
   async function loadDataFiles() {
+    debugLog('[start] loadDataFiles開始');
     try {
+      debugLog('[fetch] manifest / ヒラメキリスト / OCR辞典 fetch開始');
       const [manifestRes, effectsRes, ocrRes] = await Promise.all([
         fetch(DATA_BASE + 'manifest.json'),
         fetch(DATA_BASE + encodeURIComponent('ヒラメキリスト.json')),
         fetch(DATA_BASE + encodeURIComponent('OCR辞典.json')),
       ]);
+      debugLog(`[fetch] manifest: ${manifestRes.status} / effects: ${effectsRes.status} / ocr: ${ocrRes.status}`);
       const manifest = await manifestRes.json();
       hiramekiEffects = (await effectsRes.json()).effects;
       ocrDict = await ocrRes.json();
+      debugLog(`[manifest] characters: ${JSON.stringify(manifest.characters)}`);
+      debugLog(`[manifest] shared: ${JSON.stringify(manifest.shared)}`);
 
       await Promise.all(manifest.characters.map(async name => {
         const res = await fetch(DATA_BASE + encodeURIComponent(name + '.json'));
+        debugLog(`[chara] ${name}: ${res.status}`);
         characterData[name] = await res.json();
       }));
 
       // shared JSON読み込み
       if (manifest.shared && manifest.shared.length > 0) {
         await Promise.all(manifest.shared.map(async name => {
-          const res = await fetch(DATA_BASE + encodeURIComponent(name + '.json'));
-          sharedData[name] = await res.json();
+          const url = DATA_BASE + encodeURIComponent(name + '.json');
+          debugLog(`[shared] fetch: ${name}`);
+          const res = await fetch(url);
+          debugLog(`[shared] ${name}: ${res.status}`);
+          if (res.ok) {
+            sharedData[name] = await res.json();
+            const cardCount = Object.keys(sharedData[name].cards || {}).length;
+            debugLog(`[shared] ${name} カード数: ${cardCount}`);
+          } else {
+            debugLog(`[shared] ERROR ${name} → ${res.status} ${res.statusText}`);
+          }
         }));
+      } else {
+        debugLog('[shared] manifest.sharedが空またはなし');
       }
 
-      console.log('データ読み込み完了 キャラ:', Object.keys(characterData), '共用:', Object.keys(sharedData));
+      debugLog(`[完了] キャラ: ${Object.keys(characterData).length}人 / 共用: ${Object.keys(sharedData).length}ファイル`);
       dataReady = true;
 
       // ローディング表示を消す
@@ -965,6 +996,7 @@ const COST_TEMPLATE_B64 = {
         renderConfirmCards(currentBlocks, false);
       }
     } catch (e) {
+      debugLog(`[ERROR] ${e.message}\n${e.stack}`);
       console.warn('データ読み込みエラー（照合機能は限定動作）:', e);
       dataReady = true; // エラー時もフラグを立てて処理を止めない
       const loadingMsg = document.getElementById('dataLoadingMsg');
