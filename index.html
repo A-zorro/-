@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.8</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.9</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -1511,6 +1511,10 @@ const COST_TEMPLATE_B64 = {
         item.cardKey     = top.cardKey;
         item.hiramekiNum = top.hiramekiNum;
         item.matchScore  = top.score;
+        // 共用版：照合結果のカード名をsharedCardNameに自動反映
+        if (cardMode === 'shared' && !item.sharedCardName) {
+          item.sharedCardName = top.cardKey;
+        }
 
         // 余り効果を照合（神ヒラメキ・隠れヒラメキの自動候補）
         const baseNorm = normalizeOCR(top.effect);
@@ -1550,7 +1554,14 @@ const COST_TEMPLATE_B64 = {
       if (cardMode === 'shared') {
         const block = currentBlocks[r.index];
         const sharedCardName = item.sharedCardName || (block && block.nameLines[0]) || '（未取得）';
+        // sharedDataからbaseEffectを取得
+        let sharedBaseEffect = '';
+        for (const fileData of Object.values(sharedData)) {
+          const c = (fileData.cards || {})[sharedCardName] || (fileData.arenaCards || {})[sharedCardName];
+          if (c) { sharedBaseEffect = c.baseEffect; break; }
+        }
         const lines = [`カード: ${sharedCardName}`];
+        if (sharedBaseEffect) lines.push(sharedBaseEffect);
         if (item.kakureEffect && item.kakureEffect !== '－') {
           lines.push(`通常ヒラメキ: ${item.kakureEffect} / ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
         }
