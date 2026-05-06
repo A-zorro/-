@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.7</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.8</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -925,6 +925,7 @@ const COST_TEMPLATE_B64 = {
   ============================================================ */
   const DATA_BASE = 'https://raw.githubusercontent.com/A-zorro/-/main/data/';
   let characterData  = {}; // { キャラ名: { cards: {...} } }
+  let sharedData     = {}; // { 'K02-恒常コスト1': { cards: {...}, arenaCards: {...} } }
   let hiramekiEffects = {}; // { '001-01': '効果テキスト', ... }
   let ocrDict = { corrections: {}, terms: [] };
 
@@ -944,15 +945,23 @@ const COST_TEMPLATE_B64 = {
         characterData[name] = await res.json();
       }));
 
-      console.log('データ読み込み完了:', Object.keys(characterData));
+      // shared JSON読み込み
+      if (manifest.shared && manifest.shared.length > 0) {
+        await Promise.all(manifest.shared.map(async name => {
+          const res = await fetch(DATA_BASE + encodeURIComponent(name + '.json'));
+          sharedData[name] = await res.json();
+        }));
+      }
+
+      console.log('データ読み込み完了 キャラ:', Object.keys(characterData), '共用:', Object.keys(sharedData));
       dataReady = true;
 
       // ローディング表示を消す
       const loadingMsg = document.getElementById('dataLoadingMsg');
       if (loadingMsg) loadingMsg.style.display = 'none';
 
-      // テキストファイルが先に読み込まれていた場合は再レンダリング
-      if (Object.keys(currentBlocks).length > 0 && confirmItems.length > 0) {
+      // テキストファイルが先に読み込まれていた場合は再レンダリング（ヒラメキタブ依存バグ修正）
+      if (Object.keys(currentBlocks).length > 0) {
         renderConfirmCards(currentBlocks, false);
       }
     } catch (e) {
@@ -1003,42 +1012,71 @@ const COST_TEMPLATE_B64 = {
     // ヒラメキリストの全効果テキストリスト（組み合わせ用）
     const effectValues = Object.values(hiramekiEffects);
 
-    for (const [charName, charData] of Object.entries(characterData)) {
-      if (!charData.cards) continue;
-      for (const [cardKey, card] of Object.entries(charData.cards)) {
-        if (!card.hirameki) continue;
-        for (let n = 1; n <= 5; n++) {
-          const h = card.hirameki[String(n)];
-          if (!h) continue;
-          const hiramekiKind = h.kind || card.kind;
-          const baseNorm = normalizeOCR(h.effect);
-
-          // ① ベース効果単体のスコア
+    if (cardMode === 'shared') {
+      // ── 共用版：sharedDataのbaseEffectと照合 ──
+      for (const [fileName, fileData] of Object.entries(sharedData)) {
+        for (const [cardName, card] of Object.entries(fileData.cards || {})) {
+          const baseNorm = normalizeOCR(card.baseEffect);
           let bestScore = similarity(norm, baseNorm);
-
-          // ② ベース効果＋追加効果の組み合わせで最高スコアを探す
           for (const addEffect of effectValues) {
-            const combined = normalizeOCR(h.effect + addEffect);
+            const combined = normalizeOCR(card.baseEffect + addEffect);
             const s = similarity(norm, combined);
             if (s > bestScore) bestScore = s;
           }
-
-          // 種別一致ボーナス
-          if (ocrKind && hiramekiKind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-
-          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score: bestScore, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
+          if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
+          candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
         }
-
-        // X-6：基本効果と比較
-        const baseNorm = normalizeOCR(card.baseEffect);
-        let bestX6 = similarity(norm, baseNorm);
-        for (const addEffect of effectValues) {
-          const combined = normalizeOCR(card.baseEffect + addEffect);
-          const s = similarity(norm, combined) * 0.9;
-          if (s > bestX6) bestX6 = s;
+        for (const [cardName, card] of Object.entries(fileData.arenaCards || {})) {
+          const baseNorm = normalizeOCR(card.baseEffect);
+          let bestScore = similarity(norm, baseNorm);
+          for (const addEffect of effectValues) {
+            const combined = normalizeOCR(card.baseEffect + addEffect);
+            const s = similarity(norm, combined);
+            if (s > bestScore) bestScore = s;
+          }
+          if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
+          candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
         }
-        if (ocrKind && card.kind === ocrKind) bestX6 = Math.min(1, bestX6 + 0.1);
-        candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: bestX6, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+      }
+    } else {
+      // ── キャラ版：characterDataのhiramekiと照合 ──
+      for (const [charName, charData] of Object.entries(characterData)) {
+        if (!charData.cards) continue;
+        for (const [cardKey, card] of Object.entries(charData.cards)) {
+          if (!card.hirameki) continue;
+          for (let n = 1; n <= 5; n++) {
+            const h = card.hirameki[String(n)];
+            if (!h) continue;
+            const hiramekiKind = h.kind || card.kind;
+            const baseNorm = normalizeOCR(h.effect);
+
+            // ① ベース効果単体のスコア
+            let bestScore = similarity(norm, baseNorm);
+
+            // ② ベース効果＋追加効果の組み合わせで最高スコアを探す
+            for (const addEffect of effectValues) {
+              const combined = normalizeOCR(h.effect + addEffect);
+              const s = similarity(norm, combined);
+              if (s > bestScore) bestScore = s;
+            }
+
+            // 種別一致ボーナス
+            if (ocrKind && hiramekiKind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
+
+            candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score: bestScore, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
+          }
+
+          // X-6：基本効果と比較
+          const baseNorm = normalizeOCR(card.baseEffect);
+          let bestX6 = similarity(norm, baseNorm);
+          for (const addEffect of effectValues) {
+            const combined = normalizeOCR(card.baseEffect + addEffect);
+            const s = similarity(norm, combined) * 0.9;
+            if (s > bestX6) bestX6 = s;
+          }
+          if (ocrKind && card.kind === ocrKind) bestX6 = Math.min(1, bestX6 + 0.1);
+          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: bestX6, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+        }
       }
     }
     return candidates.sort((a, b) => b.score - a.score);
@@ -1648,22 +1686,24 @@ const COST_TEMPLATE_B64 = {
       if (cardMode === 'shared') {
         // ── 共用カード版 ──
 
-        // カード名（テキスト入力で修正可能）
-        const nameRow = document.createElement('div');
-        nameRow.className = 'match-select-row';
-        const nameLbl = document.createElement('div');
-        nameLbl.className = 'match-select-label';
-        nameLbl.textContent = '⬜ カード名';
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'match-select';
+        // カード名（共用JSONから全カード名リストを生成してドロップダウン表示）
+        const allSharedCards = [];
+        for (const [fileName, fileData] of Object.entries(sharedData)) {
+          for (const cardName of Object.keys(fileData.cards || {})) {
+            allSharedCards.push(cardName);
+          }
+          for (const cardName of Object.keys(fileData.arenaCards || {})) {
+            allSharedCards.push(cardName);
+          }
+        }
         const block = currentBlocks[r.index];
-        nameInput.value = item.sharedCardName || (block && block.nameLines[0]) || '';
-        nameInput.addEventListener('input', () => {
-          item.sharedCardName = nameInput.value;
-        });
-        nameRow.appendChild(nameLbl);
-        nameRow.appendChild(nameInput);
+        const autoName = block && block.nameLines[0] ? block.nameLines[0] : '';
+        const nameOptions = [['', '（未特定）'], ...allSharedCards.map(n => [n, n])];
+        const { row: nameRow } = makeSelectRow(
+          '⬜ カード名', nameOptions, item.sharedCardName || autoName,
+          false,
+          val => { item.sharedCardName = val || null; renderConfirmCards(currentBlocks, true); }
+        );
         selects.appendChild(nameRow);
 
         // 通常ヒラメキ（ナンバリングリストから選択）
