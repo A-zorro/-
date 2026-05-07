@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.12</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.13</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -959,8 +959,10 @@ const COST_TEMPLATE_B64 = {
       debugLog(`[manifest] characters: ${JSON.stringify(manifest.characters)}`);
       debugLog(`[manifest] shared: ${JSON.stringify(manifest.shared)}`);
 
-      await Promise.all(manifest.characters.map(async name => {
-        const res = await fetch(DATA_BASE + encodeURIComponent(name + '.json'));
+      await Promise.all(manifest.characters.map(async entry => {
+        const id   = (typeof entry === 'string') ? entry : entry.id;
+        const name = (typeof entry === 'string') ? entry : entry.name;
+        const res = await fetch(DATA_BASE + encodeURIComponent(id + '.json'));
         debugLog(`[chara] ${name}: ${res.status}`);
         if (res.ok) {
           characterData[name] = await res.json();
