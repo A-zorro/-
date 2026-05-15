@@ -588,7 +588,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.17</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.18</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -817,7 +817,8 @@ const COST_TEMPLATE_B64 = {
                    : detectedColor === '緑_down' ? 'green' : 'blue';
     const primary  = COST_TEMPLATES[colorKey];
     const fallback = COST_TEMPLATES['blue'];
-    const allDigits = new Set([...Object.keys(primary), ...Object.keys(fallback)]);
+    const TMPL_EXCLUDED = new Set(['4','5','6','7','8','9','X','Ø']);
+    const allDigits = new Set([...Object.keys(primary), ...Object.keys(fallback)].filter(d => !TMPL_EXCLUDED.has(d)));
     let best = null, bestScore = Infinity;
     for (const digit of allDigits) {
       const tmpl = primary[digit] ?? fallback[digit];
