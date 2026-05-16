@@ -500,6 +500,103 @@ textarea::placeholder { color: #888888; }
   color: #555;
   border-color: #333;
 }
+/* ── ヒラメキ選択パネル ── */
+.hpanel-trigger {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #e8e8e8;
+  font-size: 11px;
+  padding: 4px 6px;
+  font-family: 'Noto Sans JP', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 28px;
+  transition: border-color 0.2s;
+}
+.hpanel-trigger:hover { border-color: #6c6caa; }
+.hpanel-trigger.disabled { color: #555; border-color: #333; pointer-events: none; }
+.hpanel-trigger .hpanel-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.hpanel-trigger .hpanel-arr { color: #555; font-size: 9px; flex-shrink: 0; margin-left: 4px; }
+.hpanel-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 9999;
+  align-items: flex-end;
+  justify-content: center;
+}
+.hpanel-overlay.open { display: flex; }
+.hpanel-panel {
+  width: 100%;
+  max-width: 520px;
+  max-height: 78vh;
+  background: #141428;
+  border-radius: 14px 14px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: hpanelUp 0.18s ease;
+}
+@keyframes hpanelUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.hpanel-head {
+  padding: 14px 14px 8px;
+  border-bottom: 1px solid #252540;
+  flex-shrink: 0;
+}
+.hpanel-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.hpanel-title { font-size: 12px; color: #aaa; }
+.hpanel-close { background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
+.hpanel-close:hover { color: #bbb; }
+.hpanel-search-wrap { position: relative; }
+.hpanel-search {
+  width: 100%;
+  padding: 8px 10px 8px 30px;
+  background: #1c1c38;
+  border: 1px solid #3a3a5c;
+  border-radius: 7px;
+  color: #e0e0e0;
+  font-size: 12px;
+  outline: none;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+.hpanel-search:focus { border-color: #6c6caa; }
+.hpanel-search-icon { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #555; font-size: 13px; pointer-events: none; }
+.hpanel-body { overflow-y: auto; flex: 1; padding: 4px 0; }
+.hpanel-body::-webkit-scrollbar { width: 4px; }
+.hpanel-body::-webkit-scrollbar-thumb { background: #3a3a5c; border-radius: 2px; }
+.hpanel-section { border-bottom: 1px solid #1c1c30; }
+.hpanel-sec-hd { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; cursor: pointer; user-select: none; }
+.hpanel-sec-hd:hover { background: #1a1a32; }
+.hpanel-sec-name { font-size: 11px; font-weight: 600; color: #8888cc; letter-spacing: 0.03em; }
+.hpanel-sec-meta { display: flex; align-items: center; gap: 6px; }
+.hpanel-sec-count { font-size: 10px; color: #555; }
+.hpanel-sec-chev { font-size: 9px; color: #555; transition: transform 0.18s; }
+.hpanel-section.open .hpanel-sec-chev { transform: rotate(180deg); }
+.hpanel-sec-body { display: none; padding: 2px 0 4px; }
+.hpanel-section.open .hpanel-sec-body { display: block; }
+.hpanel-grp-label { font-size: 10px; color: #4a4a66; padding: 5px 14px 2px; }
+.hpanel-entry { padding: 7px 14px; font-size: 12px; cursor: pointer; line-height: 1.4; transition: background 0.1s; }
+.hpanel-entry:hover { background: #1e1e3c; color: #fff; }
+.hpanel-entry.selected { background: #28285a; color: #a0a0ff; }
+.hpanel-entry mark { background: #4a4a00; color: #ffee88; border-radius: 2px; padding: 0 1px; }
+.hpanel-clear { padding: 7px 14px; font-size: 11px; color: #666; cursor: pointer; border-bottom: 1px solid #1c1c30; }
+.hpanel-clear:hover { background: #1a1a2a; color: #aaa; }
+.hpanel-noresult { padding: 20px; text-align: center; color: #444; font-size: 12px; }
+
 .match-ocr-toggle {
   padding: 5px 10px;
   border-top: 1px solid #2e2e2e;
@@ -588,7 +685,7 @@ textarea::placeholder { color: #888888; }
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.18</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.19</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -935,7 +1032,9 @@ const COST_TEMPLATE_B64 = {
   const DATA_BASE = 'https://raw.githubusercontent.com/A-zorro/-/main/data/';
   let characterData  = {}; // { キャラ名: { cards: {...} } }
   let sharedData     = {}; // { 'K02-恒常コスト1': { cards: {...}, arenaCards: {...} } }
-  let hiramekiEffects = {}; // { '001-01': '効果テキスト', ... }
+  let hiramekiEffects = {}; // { '001-01': '効果テキスト', ... }（後方互換用・全エントリ）
+  let hiramekiShinSections  = []; // 神ヒラメキ用セクション構造
+  let hiramekiKakureSections = []; // 隠れヒラメキ用セクション構造（★のみ）
   let ocrDict = { corrections: {}, terms: [] };
 
   function debugLog(msg) {
@@ -948,14 +1047,27 @@ const COST_TEMPLATE_B64 = {
     debugLog('[start] loadDataFiles開始');
     try {
       debugLog('[fetch] manifest / ヒラメキリスト / OCR辞典 fetch開始');
-      const [manifestRes, effectsRes, ocrRes] = await Promise.all([
+      const [manifestRes, shinRes, kakureRes, ocrRes] = await Promise.all([
         fetch(DATA_BASE + 'manifest.json'),
-        fetch(DATA_BASE + encodeURIComponent('ヒラメキリスト.json')),
+        fetch(DATA_BASE + encodeURIComponent('神ヒラメキリスト.json')),
+        fetch(DATA_BASE + encodeURIComponent('隠ヒラメキリスト.json')),
         fetch(DATA_BASE + encodeURIComponent('OCR辞典.json')),
       ]);
-      debugLog(`[fetch] manifest: ${manifestRes.status} / effects: ${effectsRes.status} / ocr: ${ocrRes.status}`);
+      debugLog(`[fetch] manifest: ${manifestRes.status} / shin: ${shinRes.status} / kakure: ${kakureRes.status} / ocr: ${ocrRes.status}`);
       const manifest = await manifestRes.json();
-      hiramekiEffects = (await effectsRes.json()).effects;
+      const shinJson   = shinRes.ok   ? await shinRes.json()   : { sections: [] };
+      const kakureJson = kakureRes.ok ? await kakureRes.json() : { sections: [] };
+      hiramekiShinSections   = shinJson.sections   || [];
+      hiramekiKakureSections = kakureJson.sections || [];
+      // 後方互換：全エントリをフラット辞書にも展開
+      hiramekiEffects = {};
+      for (const sec of hiramekiShinSections) {
+        for (const grp of (sec.groups || [])) {
+          for (const [id, text] of Object.entries(grp.entries || {})) {
+            hiramekiEffects[id] = text;
+          }
+        }
+      }
       ocrDict = await ocrRes.json();
       debugLog(`[manifest] characters: ${JSON.stringify(manifest.characters)}`);
       debugLog(`[manifest] shared: ${JSON.stringify(manifest.shared)}`);
@@ -1706,6 +1818,125 @@ const COST_TEMPLATE_B64 = {
       selects.className = 'match-selects';
 
       // ヘルパー：select行を作る（キャラ版・共用版共通）
+
+      // ── ヒラメキ選択パネル ──
+      let _hpanelCallback = null;
+      let _hpanelCurrent  = null;
+
+      function hpanelOpen(titleText, sections, currentVal, onSelect) {
+        _hpanelCallback = onSelect;
+        _hpanelCurrent  = currentVal;
+        document.getElementById('hpanelTitle').textContent = titleText;
+        document.getElementById('hpanelSearch').value = '';
+        _hpanelRender(sections, '');
+        document.getElementById('hpanelOverlay').classList.add('open');
+        document.getElementById('hpanelSearch').focus();
+        // オーバーレイクリックで閉じる
+        document.getElementById('hpanelOverlay').onclick = e => {
+          if (e.target === document.getElementById('hpanelOverlay')) hpanelClose();
+        };
+        // 検索欄
+        document.getElementById('hpanelSearch').oninput = function() {
+          _hpanelRender(sections, this.value.trim());
+        };
+      }
+
+      function hpanelClose() {
+        document.getElementById('hpanelOverlay').classList.remove('open');
+      }
+
+      function _hpanelEscRE(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+      function _hpanelRender(sections, query) {
+        const body = document.getElementById('hpanelBody');
+        let html = '';
+
+        // クリア行
+        html += `<div class="hpanel-clear" onclick="_hpanelSelect(null)">− 選択を解除</div>`;
+
+        if (query) {
+          const q = query.toLowerCase();
+          let count = 0;
+          for (const sec of sections) {
+            for (const grp of (sec.groups || [])) {
+              for (const [id, text] of Object.entries(grp.entries || {})) {
+                if (text.toLowerCase().includes(q)) {
+                  const hi = text.replace(new RegExp('(' + _hpanelEscRE(query) + ')', 'gi'), '<mark>$1</mark>');
+                  const sel = id === _hpanelCurrent ? ' selected' : '';
+                  html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${hi}</div>`;
+                  count++;
+                }
+              }
+            }
+          }
+          if (!count) html += '<div class="hpanel-noresult">該当なし</div>';
+        } else {
+          for (const sec of sections) {
+            const total = (sec.groups || []).reduce((n, g) => n + Object.keys(g.entries || {}).length, 0);
+            html += `<div class="hpanel-section open" id="hpsec-${sec.id}">`;
+            html += `<div class="hpanel-sec-hd" onclick="this.closest('.hpanel-section').classList.toggle('open')">`;
+            html += `<span class="hpanel-sec-name">${sec.id} ${sec.name}</span>`;
+            html += `<div class="hpanel-sec-meta"><span class="hpanel-sec-count">${total}件</span><span class="hpanel-sec-chev">▼</span></div>`;
+            html += `</div><div class="hpanel-sec-body">`;
+            for (const grp of (sec.groups || [])) {
+              html += `<div class="hpanel-grp-label">${grp.name}</div>`;
+              for (const [id, text] of Object.entries(grp.entries || {})) {
+                const sel = id === _hpanelCurrent ? ' selected' : '';
+                html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${text}</div>`;
+              }
+            }
+            html += `</div></div>`;
+          }
+        }
+        body.innerHTML = html;
+      }
+
+      function _hpanelSelect(id) {
+        hpanelClose();
+        if (_hpanelCallback) _hpanelCallback(id);
+      }
+
+      function makeHpanelTrigger(label, sections, currentVal, disabled, onChange) {
+        const row = document.createElement('div');
+        row.className = 'match-select-row';
+        const lbl = document.createElement('div');
+        lbl.className = 'match-select-label';
+        lbl.textContent = label;
+        const btn = document.createElement('button');
+        btn.className = 'hpanel-trigger' + (disabled ? ' disabled' : '');
+        const valSpan = document.createElement('span');
+        valSpan.className = 'hpanel-val';
+        valSpan.textContent = currentVal || '－';
+        const arr = document.createElement('span');
+        arr.className = 'hpanel-arr';
+        arr.textContent = '▼';
+        btn.appendChild(valSpan);
+        btn.appendChild(arr);
+        if (!disabled) {
+          btn.onclick = () => {
+            hpanelOpen(label, sections, _hpanelCurrent, id => {
+              const text = id ? _hpanelFindText(sections, id) : '－';
+              valSpan.textContent = text;
+              onChange(id);
+            });
+            // 現在値を設定
+            _hpanelCurrent = currentVal;
+          };
+        }
+        row.appendChild(lbl);
+        row.appendChild(btn);
+        return { row, btn, valSpan };
+      }
+
+      function _hpanelFindText(sections, id) {
+        for (const sec of sections) {
+          for (const grp of (sec.groups || [])) {
+            if (grp.entries && grp.entries[id]) return grp.entries[id];
+          }
+        }
+        return id;
+      }
+
       function makeSelectRow(label, options, selectedVal, disabled, onChange) {
         const row = document.createElement('div');
         row.className = 'match-select-row';
@@ -1751,22 +1982,19 @@ const COST_TEMPLATE_B64 = {
         );
         selects.appendChild(nameRow);
 
-        // 通常ヒラメキ（ナンバリングリストから選択）
-        const effectOptions = [['', '（未特定）'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
-        const { row: effectRow } = makeSelectRow(
-          '⬜ 通常ヒラメキ', effectOptions, item.kakureEffect || '',
-          false,
-          val => { item.kakureEffect = val || null; renderConfirmCards(currentBlocks, true); }
+        // 通常ヒラメキ（パネル選択）
+        const { row: effectRow } = makeHpanelTrigger(
+          '⬜ 通常ヒラメキ', hiramekiShinSections,
+          item.kakureEffect || null, false,
+          id => { item.kakureEffect = id || null; renderConfirmCards(currentBlocks, true); }
         );
         selects.appendChild(effectRow);
 
-        // 神ヒラメキ：神様ありの時のみ有効
-        const shinOpts = [['－', '－'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
-        const { row: shinRow } = makeSelectRow(
-          '⬜ 神ヒラメキ', hasGod ? shinOpts : [['－', '－']],
-          hasGod ? (item.shinEffect || '－') : '－',
-          !hasGod,
-          val => { item.shinEffect = val === '－' ? null : val; renderConfirmCards(currentBlocks, true); }
+        // 神ヒラメキ（パネル選択）
+        const { row: shinRow } = makeHpanelTrigger(
+          '⬜ 神ヒラメキ', hiramekiShinSections,
+          hasGod ? (item.shinEffect || null) : null, !hasGod,
+          id => { item.shinEffect = id || null; renderConfirmCards(currentBlocks, true); }
         );
         selects.appendChild(shinRow);
 
@@ -1821,24 +2049,20 @@ const COST_TEMPLATE_B64 = {
       );
       selects.appendChild(xRow);
 
-      // 隠れヒラメキ選択（X-6の時のみ有効）
+      // 隠れヒラメキ選択（X-6の時のみ有効・パネル）
       const showKakure = isX6;
-      const kakureOptions = [['－', '－'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
-      const { row: kakureRow } = makeSelectRow(
-        '⬜ 隠れヒラメキ', showKakure ? kakureOptions : [['－', '－']],
-        showKakure ? (item.kakureEffect || '－') : '－',
-        !showKakure,
-        val => { item.kakureEffect = val === '－' ? null : val; }
+      const { row: kakureRow } = makeHpanelTrigger(
+        '⬜ 隠れヒラメキ', hiramekiKakureSections,
+        showKakure ? (item.kakureEffect || null) : null, !showKakure,
+        id => { item.kakureEffect = id || null; }
       );
       selects.appendChild(kakureRow);
 
-      // 神ヒラメキ選択（神様ありの時のみ有効）
-      const shinOptions = [['－', '－'], ...Object.entries(hiramekiEffects).map(([k, v]) => [k, `${k} / ${v}`])];
-      const { row: shinRow } = makeSelectRow(
-        '⬜ 神ヒラメキ', hasGod ? shinOptions : [['－', '－']],
-        hasGod ? (item.shinEffect || '－') : '－',
-        !hasGod,
-        val => { item.shinEffect = val === '－' ? null : val; }
+      // 神ヒラメキ選択（神様ありの時のみ有効・パネル）
+      const { row: shinRow } = makeHpanelTrigger(
+        '⬜ 神ヒラメキ', hiramekiShinSections,
+        hasGod ? (item.shinEffect || null) : null, !hasGod,
+        id => { item.shinEffect = id || null; }
       );
       selects.appendChild(shinRow);
 
@@ -2117,5 +2341,24 @@ const COST_TEMPLATE_B64 = {
   });
 </script>
 
+<!-- ヒラメキ選択パネル -->
+
+<div class="hpanel-overlay" id="hpanelOverlay">
+  <div class="hpanel-panel">
+    <div class="hpanel-head">
+      <div class="hpanel-title-row">
+        <span class="hpanel-title" id="hpanelTitle">効果を選択</span>
+        <button class="hpanel-close" onclick="hpanelClose()">✕</button>
+      </div>
+      <div class="hpanel-search-wrap">
+        <span class="hpanel-search-icon">🔍</span>
+        <input class="hpanel-search" id="hpanelSearch" type="text"
+          placeholder="効果名で絞り込み…"
+          oninput="hpanelSearch(this.value)">
+      </div>
+    </div>
+    <div class="hpanel-body" id="hpanelBody"></div>
+  </div>
+</div>
 </body>
 </html>
