@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>神様アイコン識別ツール｜カオゼロ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Rajdhani:wght@600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ 神様アイコン識別ツール</h1>
+  <p>カオスゼロナイトメア｜複数枚一括識別</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.20</p>
+</div>
+
+<!-- STEP 1: 画像選択 -->
+
+<div class="card">
+  <div class="card-title">STEP 1 ── 画像を選択（複数可）</div>
+  <div class="pattern-toggle">
+    <button class="pattern-btn active" id="btnAuto"  onclick="setPattern('auto')">🔄 自動判定<br><span style="font-size:10px;opacity:.7;">16:9→P2 / その他→P1</span></button>
+    <button class="pattern-btn"        id="btnP2"    onclick="setPattern('p2')">詳細画面<br><span style="font-size:10px;opacity:.7;">パターン2（固定）</span></button>
+    <button class="pattern-btn pattern-btn-small" id="btnP1" onclick="setPattern('p1')">✂ 切り抜き<br><span style="font-size:9px;opacity:.5;">(コスト判別未実装)</span></button>
+  </div>
+  <div class="upload-btns">
+    <label class="upload-btn" style="min-height:80px;">
+      <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(event)">
+      <span class="upload-btn-icon">🖼️</span>
+      <span class="upload-btn-label">写真ライブラリから選択</span>
+    </label>
+  </div>
+  <p class="upload-hint">※ショートカットと同じ順番で選択してね（20枚以下推奨）</p>
+</div>
+
+<!-- STEP 2: 識別結果 -->
+
+<div class="card" id="resultSection">
+  <div class="card-title">STEP 2 ── 識別結果（プルダウンで修正可）</div>
+  <div class="result-list" id="resultList"></div>
+</div>
+
+<!-- STEP 3: コスト確認 -->
+
+<div class="card" id="costSection" style="display:none;">
+  <div class="card-title">STEP 3 ── コスト確認</div>
+  <div class="cost-list" id="costList"></div>
+</div>
+
+<!-- STEP 4: ショートカットテキストと合成 -->
+
+<div class="card" id="mergeSection" style="display:none;">
+  <div class="card-title">STEP 4 ── ショートカットテキストと合成</div>
+
+  <!-- カード種別トグル -->
+
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <button id="toggleCharBtn" onclick="setCardMode('character')"
+      style="flex:1;padding:8px;border-radius:8px;border:2px solid #78DEC1;background:rgba(120,222,193,0.15);color:#78DEC1;font-size:12px;font-weight:700;cursor:pointer;">
+      🎭 キャラ版
+    </button>
+    <button id="toggleSharedBtn" onclick="setCardMode('shared')"
+      style="flex:1;padding:8px;border-radius:8px;border:1px solid #444;background:transparent;color:#666;font-size:12px;font-weight:700;cursor:pointer;">
+      🃏 共用カード版
+    </button>
+  </div>
+
+  <label class="upload-btn" style="width:100%; min-height:64px;">
+    <input type="file" id="shortcutFile" accept="text/plain,.txt" onchange="loadShortcutFile(event)">
+    <span class="upload-btn-icon">📄</span>
+    <span class="upload-btn-label">テキストファイルをアップロード</span>
+  </label>
+
+  <!-- ローディング表示 -->
+
+  <div id="dataLoadingMsg" style="display:none;margin-top:10px;padding:10px;background:#1e2a1e;border:1px solid #34d399;border-radius:8px;color:#34d399;font-size:12px;text-align:center;">
+    ⏳ 照合データ読み込み中... 完了後に自動で照合が始まるよ！
+  </div>
+
+  <!-- デバッグパネル -->
+
+  <div id="debugPanel" style="display:none;margin-top:10px;padding:10px;background:#1a1a2e;border:1px solid #e040fb;border-radius:8px;font-size:11px;color:#e0e0e0;white-space:pre-wrap;word-break:break-all;"></div>
+  <button onclick="document.getElementById('debugPanel').style.display = document.getElementById('debugPanel').style.display === 'none' ? 'block' : 'none';"
+    style="margin-top:8px;padding:6px 14px;background:#2a1a3e;border:1px solid #e040fb;border-radius:8px;color:#e040fb;font-size:11px;cursor:pointer;">
+    🔍 デバッグ情報
+  </button>
+
+  <div id="shortcutLoaded" style="display:none; margin-top:10px;">
+    <div class="item-conf" id="shortcutFileName"></div>
+    <div id="confirmTableArea" style="display:none; margin-top:10px;">
+      <div class="card-title" style="margin-bottom:4px;">📋 照合・確認（順番・カード・ヒラメキ）</div>
+      <div id="confirmCards"></div>
+      <button class="btn btn-merge" onclick="mergeData()" style="margin-top:10px;">⚡ 確認OK・合成して出力</button>
+    </div>
+  </div>
+  <div id="mergeResult" style="display:none; margin-top:14px;">
+    <div class="card-title" style="margin-bottom:8px;">合成結果</div>
+    <div class="copy-preview" id="mergePreview"></div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn btn-copy" id="mergeCopyBtn" onclick="copyMerged()">📋 コピー</button>
+      <button class="btn btn-save" onclick="saveMerged()">💾 テキスト保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="resetSection" style="display:none;">
+  <button class="btn btn-reset" onclick="resetTool()">↩ リセットして最初から</button>
+</div>
+
+<!-- 拡大モーダル -->
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-inner">
+    <canvas id="zoomCanvas"></canvas>
+    <button class="modal-close" onclick="closeModal()">閉じる</button>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     定数・データ
+  ============================================================ */
+  const GODS = {
+    ディアロス: ['#F3BA88','#D69D73','#E6AA7D','#E7A171','#D18A60','#FDECCA'],
+    セクレド:   ['#78DEC1','#757DD2','#5183A3','#6997BF','#6AD0BF','#F3FE7B','#6B9DD0','#C7F38B'],
+    キルケン:   ['#E5B1FA','#FEECE8','#F0C9B6','#CCBFFB','#FBE5CB'],
+    ニヒルム:   ['#86CDF4','#7BB1DF','#A3E8FD','#447AA5','#629AC9'],
+    ヴィトル:   ['#AB9180','#6A5D63','#927D78','#988792','#836D69'],
+    '@?#$':    ['#6020E0','#8040E0','#E0C0E0','#6020C0','#C0A0E0','#A080C0','#A080E0'],
+  };
+  const GOD_NAMES = Object.keys(GODS);
+
+  const CROP_P2 = { x1:0.403, x2:0.430, y1:0.301, y2:0.353 };
+  const CROP_P1 = { x1:0.11,  x2:0.22,  y1:0.22,  y2:0.31  };
+
+  const hexToRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const GOD_RGB = {};
+  for (const [name, hexes] of Object.entries(GODS)) GOD_RGB[name] = hexes.map(hexToRgb);
+
+
+  /* ============================================================
+     コスト識別
+  ============================================================ */
+  const COST_CROP_ABS = { x: 530, y: 140, w: 50, h: 60 };
+
+
+
+
+  function cropCostCanvas(img) {
+    const { x, y, w, h } = COST_CROP_ABS;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
+    return c;
+  }
+
+  function detectCostColor(imageData) {
+    const pixels = imageData.data;
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+      if ((r + g + b) / 3 < 50) continue;
+      rSum += r; gSum += g; bSum += b; count++;
+    }
+    if (count < 20) return null;
+    const r = rSum/count, g = gSum/count, b = bSum/count;
+    if (r > g * 1.4 && r > b * 1.4) return '赤_up';
+    if (g > r * 1.2 && g > b * 1.1) return '緑_down';
+    return '青_normal';
+  }
+
+
+
+
+
+const COST_TEMPLATE_B64 = {
+  blue: {
+    "Ø": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAE2ElEQVR4nI2V2W9UdRTHv+f8fneWwnRooRsiZauEkJZCW1ZBjSBQBUMQEcOD/l0mGkQWBQ2CCfAgPoBCcAlpQbYuU6YL2FIpLXPnzr2/c3yYTqc1kngezsPN537PL2elSqiqlhwULzHLCpCWnNLLSEuzMNDLNS1Bae6n/yZtPHRlUgGAZlRnK9h0LgiFSKcxr3FZbVUF5SdGB/omdRZqvflxP4iKXKphw9pUzFiGujB60XOjfzIqodQMjQp+4EQXvLahKemVNTQKhm7eeTStSqstq4S+HzbtbEoY0vH+J+O+xNM1jYst4A//9HMAAmCVyKox8bV7K0n9h9ce56NIldh6NZtak4nl9Usv55hBtMKoRy65dWNcJ+/fGAzZFd8rSt6CzS21ptB94QkzaCX7RBW71yek/2pPTkyiIFAoVFU0tuSN9Sbq+XaQmZp40sn+N63+eXncSETJnFMUUVEn6e17jNw+OWGYFNi8w3Nd3//txZLz5nkeiEAgIibi2GIDXrOLhSG0ojMut755qkTkVcQqYkUOBKD+QLM+cd6WTcLqUtvTyFyclCAfsUcmkZ5nipyidl+LHfr6BirebbBOlq3hqavjnvEMqyooZpP5glOCJjubzeMf+p8taax6m4XaE9pzRwGRsBCEIgry4kajML2/lYcvDNiJGz6tZKluovDSCxFXyOdyfhhEhSAUshyl9rTYwXP9kEL3MC3iaEtcH2QAqKqE+dD5z3ynCkq/12KGz2dZhCe6YZlbIVdAUFVVSEGDMJ8LwjC1bx2PnOv1jDCjKyKum4/xDKE4WKqRi9QVci9Snevs4LmMYQURj2XBS0izBRRrpgqJRMUV4rvW2pELj2JJQwCR3IatYx1zAJQAJdVIVSR1oNUbPp/1LBmKR045wzYFPM2DCEQAgVhVaw+2eJmzvSYeMw6AhOEQbAKYCgBMVxgAat5vNZnjvaDAi1sGMesELAEyd0rTH7SZwdM9IEQSxWKWLKmozQOJ4nqYJusOddjs6bvCUBKVKOYZ2ATZ50AVu9JYK9Uf7jD9X/YqFKSkUog8z2gV7CiwsAQCqPywwwwdv080s4SchMYsgR0ANdqwxC36qN1kTz7ArHVF6iJuAfcGqFtc4uqPbvb6vuhyWjaoqqZWgae6Eds5/XP1kQ6bOXbXTZdJVVVFVdGcVNZLjtprinn5uM1kTz3UmYJO11+SbRBGb5/O7zQA6j/dZDPHbwtQbJGSnmL1SkwwCtccb1ytWnukw+v7/HYpAWVUKt5Ko4fhbj3Qhe+kFxxuM9kTD6W8EUuB+fUWDn60wNiV5cn1nTUbbfare6XkEaBFB7v5AAdX7hEDyUOd8D3bd2xGb9YKNq1HG/SPzyYZgH/mVyTtkxP3XLGLiMrBacMndXj03XNYAPBPxdea6h0TI2723laAq7d1VtLI2YyCGAC48WA7wkfXb47OOQnJ9q1rEpo50xURFUHQwr27rfojv//yuNwf7dsaUp7cOjMghKIiQVGxdXeDQWFq6MHwWE4SVfWrllcmIRPXLz5VlEEovKUbW161cJE4BTFbQzraffN+UDxDZGbezvaVprY1sZnQ0cBv97I5KV2FGRCAmorU6pUN1fPFf/5X//2xF2E5B3NAQMlawwQViSKZfeP+Bb7c+H9y+AeB7LMIAfTwxQAAAABJRU5ErkJggg==",
+    "0": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADKUlEQVR4nIWUP4slVRDFz6mq290zo4IgCiO7iYGy/gEDQTDeQDA0WE0NBQNDBcHEwE/gFzAXQ0FMRBAjEw0XUQMXdcBldt50d9UxePNe94ozU3QH1ffXp+49Vd18xdzcDCBNYxGrkFSlzJldBM08quyppw9YW44AtL31zy8n5j6eM9zD5c+++wwuia8/O0lMG74WzoM337oMA5CffvtgHM3c2jtv84qID273rZmZv/rGVRzJOze7MG/t9hV1AQDHt1pnjidvXiNIvmhhZo88dp0ijunxhA77i/Te4iFFATg62q48OkSYdq/9+R4BMrcZAeDWh3aRWUQuFfpeiDEFkEbibFlihJbMnOhGCRRBs3Xjw7iklR5m00yS5ma1EyEQBttlKmWrfqxJcJdFLdUiiEWRnTExAHPNBSR8v+KxquwHDVnFoZsz04fudCUYy3bFKpWUOWXRXFl7QdQKhEaxZZ1uEjSXxmk38KqK0v5oqill56czSLGkWklaYZ8JqI02BQko5aoVQOTKcKlqzhIkWG3bvQLXJGvaPmCJ3aozCsl8a5eTBFKEiBlspPmWdVic2m6PqnNNU02zoJT387xMVp3HWdsfprLOxykr5xHRKrPfV645sNoyAdByM21nxbulhQysDwMQ0+kMI0kf1v39D0hMmyJJGvu25wjE4jcAajqXFelm3RDcTyARWvnPHCcXCLfoj8K97UFG2sLVJJcgWmuHnTf6/4OV5ulFmcVw0FrjbrYIRLYFpHuoFczaQWtDX2tFLZ+CywRmyb0fuq5r8wIioJVXhE9VYgxD17V+/80QjIfs9i69lIjDru/6mLhSXECBdFiVsRu6Fs47N5fFwMrxOUWBbk051mQ3Hn8I3GkePVcgCJp17mFmX75+4wITQqXc2nX4CS6LWTLp7OxSYBd/Syb9de9a8GeVzXX/u+s4/ag0zfrq12vAb+6qLLNOPv7jSu6nzx/UbDXN9fv7P1zBffHRieaJL3X94NZeePn4gBQMIgmSBIG6f/f731K52fD56IYuaASMolEgt5cASIKm6WwM1TwCIbiRFS4SuPgNc5pyBpGbOf8FFaOZT5ZBnXcAAAAASUVORK5CYII=",
+    "1": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADp0lEQVR4nF1VbY4jVQys8nN/JEzYHdgPhLScALgIN+Ee3IhLcAkkJFYaaYW0mZkkndfPLn50vmb6Z3ep7CqX3bz34j7047DeDEPnpQjMaK1O+900zcc55lRKbrTi3vfr+19+6kpnhVBma/XxLyjVMkwC4EaWzrthc//7N3jx/BMRGWlJAnRaseI+bj6ML3H49DzVaBGpJOQwGov3d98XvgS+uduOMTcPmUAnaYXWD4WvgL4a3buZIAkZYICZ+SsYYD50xcwcIOAgCALAa0ai9F680CwpIwAKAPSa0jsrRpIEzH/uo+/H1Xc/bA6v7Fm971fPsdtOx4hGL11LZUbYnwDNrPvt2mUxc9AChHf9s2e2OnlvRis5n2ECYX0lSZpsXFlGZN09zICZ97dqzMaRRhLw3vuWMdfnLtZjKZurTQLRlb6vACh33H1tVo6+Vf2mH1T9ApS4trLeCSCdWOMQczmWnWxcIXFl7O7bVN60DIpO2GaDJivj5u3Krx2i3I37A+Fvh/3u0Bxp2SJhfuj6MkgX39VaphJRa4twqn49onSdcj5OeHet3fbToQDTl90hQj73j1szGb12ddpuLK5iYo9O2/0sADa3HSWlIlvMdad2ozoPmCeAAPyIY4GkjIzIqMEbINtckwAIP2aglzIlRWS0cgYmIEz1pM6bDPNAgBAkZDkjCRJthpEk/DODKitDN66mY3S6OzPW/fPX52n3XI8tUv6FMKBfF4x1bjaU4WLPYfv4tHueptqaZBAExtF7aal9FUNJAAGCdlqVPJRBUiovk0nlsiQEADu/jtqtCOq6OoIk8qTKLrbN0zAobjZMEgQRAEm7fqiP3UjopkecKhiIGyDbvlvd9HjiIwkItuyzBMjmfT/cxGzBAuK5tEAIEOtT371kXCYEwnT2DFDi+GTXZnS6NhRxEUMtRWq9hEJKyQTwXPpUQQDFud6oFnW2z6CFffFXwjXhgEmL3aRpUbzUx81uAVKeLx1hSxBPkxBuQpGQgDypsguhgNSN30AkMs88tqQIkpTLRtz0CJE6iwGg08lVZt6MUEqkcBJzjpWQmZnX04OxRQgpAuRp1ssMqYy4Qv1tSCAlQLQUBCglRUbEZf+xHz9kAqDx/H/RqaHI1q7RnR/efGRqaRL+abtbSFLRRcw5Twuuzoe/v33/mUaaRP/14eG/4xI9NfM61T+WH5Rw3D69+/i50ZCgf9qs+NCoDM+I+bC7WxsJIKapTe1H/CupBP8HTgKCZpC8YzMAAAAASUVORK5CYII=",
+    "2": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADi0lEQVR4nI2Vz6uVZRDHv9+Zed9zjtdzLRG7WYIWVLbTXAReokCw3ATRppWLoE1Uu5Ztwn8ghaCVLVq0EFoKKVSbFoZQVJtEyFSKSKmu58f7PjPT4vy4x0N676ye4f3wnRneZ74PD6mYqqoKKSCIaWQiEOHhXtzDRE3NVB9f64HY5JBAYvD7TdcWQJqq1pUdeXcP/j9unfmRJMHDVVU9dOrkfTAAOP/5v+O2mGm1871jD+Dwev/jyBQ1O7HOB8bLx8xMxHYdf5AeAJzYaWIqa/u5BXhw76AItd/dSrHfF7V90ZvlGwJSpklkJlYmZ+mt0iRnha+dFiE1E0QiM4MfPjIlhWaZ8xK9mlKXyTkzR828edLUZ5nQalpv7CSARJR21gdTxGQuyAwXFRDIzAAXPtFknhIZVY0ukshE5uZkJIx642wHFOof0E7XRFZaD2YiRWRBMXqDK8wExfq7VEFhjVI8Mstm+6qW0Ud6JqWunCZCPfXbBUhphvHs6hR01pY5HjtEad40NRRM7GtjNPanXts940pt5jIYKjWUIlFGHZTms0EZxf43O/OZ72zUMNdBkmQmQKLphPw97j/34iYG/HR7h1srRVIIUkiS7dB3vnJEFjDkBYwaKwQJTK5opYMNnlzHvXH6ZtUWc4pQVVW10lHue/6FJeyfj36pM9PuGFSstvAY6dMvHV7CNr786k8Om6a1u6pVByJtO97/1pNL2PjTH26HN01TWmPd3dGpsukceOPQEtae+8YF3haPSOvv6Bib7vrxZez6xW9HVC/Fi2em9RkjPvr2Mvb9xasDEXdvvWQCsFFotffsEvbzJ3/RJIq7RwBIwIZVtffMPVRe+eI6q3D3SE8AICgmaq8u/q72wuVfIekeERkASElJGmX30QW1c5c3xDJKBCITJEgHCBPdM3e84flLbr1wd88AIHy4QmZEcyuN7OkEi3Pf3a1qKSVKZgAk1t45ACDy6vtumxt07VK3R7hnICFJSHYPTkSeUDPKbDEyicgkQEkQlOTUHChinDtFIh1ATq2cwtzcQrVFyxsBmOw0QPii8VeWmCmuPjMTT4DMJB+bzglZ9Ki1D3DfMJNYcLP7BlEsY2sOGY34dhTRFgnfBhgRMrlwW5VOF/ftgB7mfvvrXSS4+ARPX9mp6WfcSOfRTk9FIQskgSQgynQPeEaUoXkjJqpBXdQUQFYs73pElvDi7X+qFcnaFreDSQAAAABJRU5ErkJggg==",
+    "3": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADyklEQVR4nIWUzctVVRTGn2ettc+59/pqpibmR4plDvwcCIIRhIOEyGrSLNCRg/6EZk2CoFHDaBD0BRE0icJBEWYNIhARsVkimVR+vG96vfees89aDc45b1L3fd2HA2ft58dea699ns0nVTWpmoqpirSvUkF4bupZVdWzusrZVC2pFWpWbN24xlRamMLm/q3rE1MhAISJpZRSSk+/th//H+OPf1JlhJMHLJXl6PDpbXMwAMiffL80ncwq01QUxclTK2BAOrXrfeTGTS2VR0+vyAF47u/PandJqdz8xmoc8NKeQZFMU3GSq4N48Wpdidqjxx7C4cDmwmyb7ty0PLN0GwKhCJUcDfrpcuudkRk29pm//iaTGhChiCB47ESnrA81ywtddP2r4QIk1aBQRBj1ud17OlBCTPoMF2OgwqQAIsKDpV/ppAWqWVV00V149qKqp6SIiAiaaScNSBNKF4XXDeiMLFRRpza5k5qggf1eAp6UIaO6CgeE8F6aggZMumhmaxwIsCw8gqI27cElTebl+fMRCFDLBgTbrQBwz6kDF8WtGRa5AQlIjFGUQJ0DFHjcr7e0nN/Uyuo0c1WS8HrsTPQGBAlCHnmmBX//M1VWV0tiKirCyZb9FHEnCIKDHQe7zN95hFWcajZRMW2OvDL3n7h6ociNVZE9PEVyMs3lZu9GWYXVERFwulBV53D5nWYUoN0SqJlYslJ93oL2wkdjn05sScXU1FJqRnNBHNn01qyatPZm2+i5HLDrZRBCiggpILCSd55/XNQoIioiAsqPf7HFSTC4dv9TLZj2/iY8JEmtfYZFVwPblgPHX23Jy2/PRM1SSmYq0kCEqmoplYPRwrp15aW6BfeKmKahqYqIEJVKuzURUVEr7ozXty2iWBruPFqQQly8hiYDCJCiKtZo1a0IUbPhoTNtMLjOiIgIQhyhBJYbO7orxbA3VxIVIQBHIICIB1trVsjyp2YgGNH5iA8egclylxcgSjIcZHtbhFqnBUzQ9CdFgbg7AYiKMJr1/S0yDgv2LnxixzVElywaZwb29fV7GGLJuyrfPPvD7b5+Etx4/NmOq9hY+M3FDV18or+9/jsueyM537u4gvzv+JlZPOPsw7jpL15LU+cbXz4E/OJmriRXdXx+YVXu3Lc+q6WeTWp/b7Xsn344q6eZR8rhaGTc/vr2+diVD24g3xtPeDgNy9HAFI/t271hraJ1TgBAff+PXy8twvN0Mp7xoKViMBiYKiO6fwFAgIggPZo8mU6rynJEhNeDZCKtYyDoj9LDm1k1neU6/wP7EY1FZeR9yQAAAABJRU5ErkJggg==",
+    "4": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADvklEQVR4nI2VPagdZRCG3/ed2XNzck9CcgkYG4NRlDSKCiKoiKRLIQQrMSrYWAhCFFtJLwjBws5SG0GCYGNhIBYign9gZ+IfasCf5Obee87Z/b4Zi7O7+Sn0Dlvt+zDzvd/M7PJOAiAIQJBEk5mbQCIzstRaokY4gdUDUTTJzN1x+GiDBCJ/+aFjSaQPGCn22RrX7OWHsIrzbwIZCEeCCQEESZmZu9uJgcPaekZV0FcEKJJm7t40bvc/N3DwZq3WqvAkAIBISpK5N7rtjZEDzY1W6AYAECiZ3H3S+L7TuAGkmYUNZihS5k3TNI0/dc9NIGVFFDIBkjQzM3PTvSdxY1AEk36XliRXhc2bSZ2euYmbzGzfoiuduy1T4sqHe+x7BTcnJCWA3jgJiJLJLOzEEdwSq45obWrk0BPVu4/fggkkScqbCSXJ3d3qoVd7vfty9NL3zDlzSmZyz9lp9fp7V4aMTjABGdY3pmZmjSWevr2XL3ydo+31CYR0kuvrqMlmsvPwY7149RyH1OLUmp353CmhZkJcbLzQi+WsB0fTWWqpcLDsBL1B27xuvfb+5v6t0XZs72y3bfFkuzQ3Yzx7oJe++OqgYcxYEASgwFzeuOqjj/TK3+fWJzGWZtXqHiPgZqqHTvVKfYezzDEhCJCEamfWNJmvDQd89+qMwdE1IIGkR8gb+jOH+tef/7R/rSVlNmCr8H8mnsEnHu+5yx/LrkVmF4Ppri53lsvWt9sp847nhzpvz/fOSybK0JmsZbFcLJbyxm3PS8MB39paQxAiRzeSTCap8cmpo/3LT3/d29R+tEbT5mYyudmTwwxe/qSZVPQ7NF6PmZu5mx0dWoyzcy4jE8ANHBZtyOQ2fXG4ss+OARW5koeNOPxAKbX+eAknz+Qu4qOTsg3sImZTXT/Nf4aU/w8BAIVdkrvNmLsF4fXSOYkSVoMM3HeAiIu/PThbAe35rJHfhHd/fCBJolYt1rfHDpbNC1vqV/fShxFRIny5nDhJrdJS+vP7jT2bsnHMNO3aqK13m9OJm0syEhKW1362ScYIZunabj73FtGZmUlGaPWv0dLGwUW0i+Wybb12UV0yE2QQTY1MhusTXtuubTsv4VFlkq2+0FJx82SMpWvpSlc9UEIKkTJCNIvqmT6CUWvpavGamaEqiZ1ERTWrdYJxC6Ntu1KrW5MVqQyKQarKzBO4+DsykfldraXUGjy+f+evJSmRhESZzMz37GUiMzO77XnbluJH1q9sLZiRJJGhSGVkwoyJzKhd23U18l8gy8VlhKAfUgAAAABJRU5ErkJggg==",
+    "5": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADZElEQVR4nIWUP4hdZRDFz5mZ+97bXTFZA/6DIKhVxCaiiKZJLaSzsLLUKoWWtlap0ghWYmMhWNmlsRELMSGgiBKERBSEZPNP9s97934zx2Lfe5vI7r7pvjs/zneHc77huXCYmxkJ2DgsDC3LSUgqVWZryiHMsHkmaARJc9BUIigAkqpUw62/pPDgmU9wfH3zJTLoNl7BYbKeDPcIrgB9TIXRbBWIznbNfDXnTAbduYokOzejrRIEY4I4PdpbTj0DMFfX4pvA4eHJzsK62eJb/zFJL+5zJUEKycm1vg8PHVzxxMgmgwAWJEmFdW+QWr8Wo245CtFNfGOaBCBVpYqb2kGqxoowXyqaMmQDCaFVVWKDVYNav9eHMw6uBjt0WRRlBWG8VvDd2XTWWpDRLcFuPcw2hiwIDk02gmXamVVmAEtnONbezNxpaK3JJhMUWh+bfT8dAlpO7c8Dbu4mVVYO7d7UfQxky6oAlAvFi/9zJB/8/MMdorWsjMJQR1nnp86f/+OLf8YkaQ3DURwA4OVP35yW0awNdXx47IOzaUYb+oMAHFEXT6RbDMFHvDm83vk6yu5u7bQVHM6u7+zGw+n47tYEBptHcRFIHqTl1NNb06jCjY9ohFFGkiRAFlWjd9+ek5uIkCrC6SQFksC+NoH+q2dfmoPmBqmXSCOIqszMVinAY72uzxVP0AKo7KOaASWIEECaGSOwPQfHYJCqNFlRKEESCJqZVdXCXBJhACqZJFmFkkSYucB61IkAT79uRlA/3TcJJRESYKKWSQXD/LX3908737slKGh/9EesFRXuo4V4eDIBAUajPba8FOaLleIRTLIkwt3duFxKguLgNGKARUmgm5k7FmlJwYjFSnmRjOhGXdd1XUS4q56Zt7YhE3fnpzeenM5aKxFQ5dDvbW+cn7fuCQH+u/jhS99e3RZwuvu7B1Hrr7636DywIQpb/WLuCxdwaPV3WSZt/X54+6Bu3FFaZl5ZBX7XWrNq+cv147nfrtqQlq3x85vHcX9erqE1a23WZpd/PJq7dulBmw2N50aT0YbhzIcnD8V2P7tWZbN+j295103WRsbnXnnhqfWYP0IByr37t369mZUchr6PlFLC2G7fVj4WA4g1DAkOw5AtKkuAahxuJps/RKEgFQG0rKEN+g8Nt9DWegH7SAAAAABJRU5ErkJggg==",
+    "6": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADFklEQVR4nIWVv25cVRDGv29m7q69zpJ0LsBRIAW4gkgEEYkXAPEAiAIJJCJaeIIUNEiIgoqShoKKlDSIhgIpUgokhEQKXCChECSzMfZ6zz0zQ7G+d68h3p3qnDu/+XNm5p7DG1Q1EypNTVA9AQIAMjMzwsNrW9NEtVERufzsJRUiEp0kkJg9OHEhWE3VVOXq7Rdxgdz9+ogAeKsxbd54/yIMwOzTn0otIqL2+m2ukSt3XhqbmZhe/WCNPwDN2weHIar25noO2H/BGhG9tL8uMElyb6QinF7Z5BG7qrarO83Z9oQAiWUlE0BuyVIzGW+ZGju7D8GkZkb3IW+92y1pjaIjczSBNOE1AZDAUY+BpiJ9KtqAWy0jQFLA3gWQZui3DHdr/bQAJATiKxAmKQM7GugBpCCY2U1IJozoQdJEwcm8TSQTaB58pZke+RtgzN6hNgYmZHvLPVJNd45/TCYiYqfYsK45SIMI4WUACPfSzo2rDCM8BVnbSACR1XxEeGlrWbQW6OuLcgrDsoxYFkNHxja8RppLD96EgwzvughktI8eoklEmq9iv4cnSLn/zcOGIhKeT9L3Mnr1k+slRSUgukHu7FdTOTr2tR4B4K3JosjJ6frQAHD9mhfZSAHANaQMRuli2RUOW/grliOYAJDIxNPTpcYgNhiyz5LgoFHI1945W4maDsjRGIkIAJQU4LhTkDIYcIAWEZGZZCoH5yRgdVCdbKuHlARIFRVfTTgtVjdiwt2n08ePkpSwaFY+SAPOXZ1PPYOdMgOAlHOdkAFHAEbKtpL/q67hnB0Pp83iEBShnIPDcvCzIsHftx4HKCQRGKR/Lse2ROIEAQQIcHUJRVrU/jd/PiLBbpsA91bRLDI6w4/+e4BVhgiJOJ1fCHQyyxT32R8bwQOmRMT3m7h/DrJK1Hrv5w3g3T/dxb1dfH6wlvv2O69VvG3r7OMfLsbyiy/nvih8uRlPtht57pW96XIAz97gZaPy71/u/RWxOC680YyaybgRQgj25V6imWCkl5NSLCoxjzRVUw7e60wgMiPcT0up/i+ojYHm2JIYkwAAAABJRU5ErkJggg==",
+    "7": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAD/klEQVR4nI3VwatlRxEG8O/7qvqcd++bZyZMlEFFUYzuEiGiIG504ULXgv6BbgTdudCVKJEEUUIkLiKMLhQhcWImc98795zuqnIxnutyptc/ivq6qmn+yJ0uJ43ElYMAEgmQAIFiIivdW9MXPm+UINIFAixU4X8nkZUZ77tf4SdfwnPPL7zNV/ef73DPdTU5X0C6tcYXgI/Ewgu4X9NvZjy/Yv/rjdrxBVp8q03+4P7dB/ee48ajB3Lm/Kue4rNBsIz2rJc6/niH73A+O3E45kYKJEi00Rwkx+Ov7y7euzfSK5fr2YZEiIQd7qo5YY+PX9vhL+ljckTvjg6TJMOkvq5Xpv7kjT3j8sHLTjqLi6ynifJm0zD0utJpen0v+Lv5CKQbGvvgJlHpnrDjGN3WH+zu7sMH04hwo+arDGyc2mwI0Bvq9MrDHb57+NSWmV6sQpRFDWCSCiR7fHd36z8e5IgIR40tisaeY22HG7HTTg9vdvjmld/1LUNR56VHRMsCYx2MzhHf2N3p4+usjLFq5JaRlWpVoDrCLD59f4e/P84RkdudMrYsVNVEyUWzVvW93d0u9zMr+rJp3bJYVWUWoKG8jS/PO/zL9ZSV29rTM0CQkg6bmU+cNH1zH8r6789uyB5Z8P9Yyigz93UUaVpevyzoHw6xLqe7ZV02P4k0mWmadJYsF1624ZOPbk7np6e1r8vqAFAomHgw96b1i77D3xzw5DQiRyAdAEURMB3LPewS+Qnb7e1pQ4xRcJKCKJNrLtN2uWv8ec7bZV07KwedJL1BNIpNqdcuQ/nk5Q/PfYy74axy0MyN5ibzGafLNuDt9vTcI3pti1q6IGsuuhtp5+uv7u6ft8fbbURmVA/NAinSJzdzj/Orl4JvTWPrETkimOenThKUmpmL29W3dvcOajn3yCSQ1JBUhJncrLF/51Lwb3NuY2QkRVRRoCjIrLn3l76yu/c330ZlZBVMIgSQBZiZe/4/8p8OsUaiKpMysJSJAkSp3b3ymd39MWyJKFSCoIxSAZQIWmxv7C7fbee1Z0QRJEnIAZAk4Jt/boc/y1r7GllF5bPeBBA0U6v1h7tbnszjvMXoEVmgRMIpSJLPdw8vHb5NntcRIyszk4AAlyQSM5fv7257dLOsfYvBrChUIavczE12OHz06uVFvTlPT9e1R6Lq2V9AwKXmbZrW+Pbu1r/fr5ZjbMUqEZWVVS6j28EfPzzu8OfOYW0ZESSDWcxCySS/ns68RP7Xx1pXHprQx4jKzCpUOaTpYHVlBaAK47cNt0U7nLtFUCplZsKl+WD20vbTZI6oUrte1qQ3t8aRacXKrHJvx1mYHzqxLiOqttP5nDI/bGLfKpWMAv4LRE5OvCAfS98AAAAASUVORK5CYII=",
+    "9": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADLklEQVR4nI2UzWskZRDGn6qu/sjMJCRZs9GsihIxICL4hQuCnlz05sk/wbtHb/4dgpfFi3jao3jxtriCKIpKxMUoslETk5lkpqen37ceD0n3DMikfU9v8fy6qt76aHnFdOvdnfJk/4fEsPFcDt9/IAIQcDJGr2dVVU1nlibFa9cP/zg9e3WQpNfWgDJ/ViAESEYc748sMxWxNN19/rcHD71jWHJ+//goSwSWFY+MT9/cWYYBj71/50sBLc/t7I2t5RyAt/O7iFb0+fD1KzngrV98pkU/vtDBQW6u9KwY9Fe6QDzZqzVLuwIDWOlldqNY7wbTzcxUe4352QSaJJEAIADAm5floKRG32jAcT5QzadOCCACnC68R6fbg9Yw06QwEQEEUAXnnOkz0lqVz1bCZHxhCPIp5y7t5YG3RvTopddBCBFRhFah2F70hc8MEf1p5YCIJ0hakFaM29CmWQ0g6a/UISBJC28kSWCYZxzhBIAYYiQlBjYSnSZoQ4c6MAemVSSU7h5iA8ZokHnKs+OQiVcOCARig7kEQyyb+4vTcRALUQAKodrbXACn46q5P4Glh9RvT5fLcw6wo91R0gkmCXVva7XbJ+tSb2Q737ML9FhqCvz90f9IUlkf/FN/Ou5ySWN993zj5JPHn7pm8h+9aEG38N1P68VA7v8MAXBZa4EoCXn96bnHkzusSl/NhQBAAUgoJAFk0owB3e2L0Wos6WmeKgA6QIFDoyi8nZdI+4aCmU9NElEjL4dOoZrYrB0z0oZrtr6WiAj8sFA6QUBEVXWFrUfSLN9+73IPP4jipBMQJYAQ2044NSs2m31dSxW43H0A0g44CDfL+o1pkUrXi9Ai4HxLSEvmdRYLAiUJUSG5COLiv9AUoQwXj4EIRLJ8DsbFLdyblXFhkESLR1vDDdJqt7DskFTEqnMcce5BiVHZCf4qriH4190gZhpqftXl8se/UGsoJ/F2fSX35+d6PtG6OuXow+EV3L3bdRhWcqu/vr0F331p86JFnDcbAOuDe0fmh8cnVldnpht2cL8h5hgJiiRpPRydVxZmOkS12ctUIFjoJwGC9FgdDYeT+l8XL5ONqhTXBQAAAABJRU5ErkJggg==",
+    "X": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAFaklEQVR4nD2UW6+VZxWFx5hzvt+3jvtUNiK0YK2hG7RVS01aaCUktmnilb/AH+hVL7zwxmiItjG2iA0QkTQghjN77cNa3/oO7ztnLzCO65E8yXiSwWtWj8e1UjbfnDxbnBrl0kfp1uscIAUQdyACpkJQ1HQ4GO/y2BAIU0EbIImgengRN1EBaJVx1WyffLqcI2gWnQWhIAJeQj1ExFTNVDX297njnSq8y0wpSQDhTlMRMUmpThIk2D5rT51YWNV23sPYNyaI8DJKQ9DMqnpc//Z8KwD++OD7fTuxIReIvfzsWgbz9Hdf7JQIU7OU6kMk0tMvnndbL7oURKTDt64YGWnoXxMKRIng7OZxCkh/8mfH1aaXlOrK9dezgQi79eJEUEzoIKT8KQTQvDc/GM2hdT1q3j87KCKtvtkEBSIRJby1x/cNJEY/bcpkDKvz1hWCJL84ksYRWaoqWaLP7jgAlvOvL6tJsnq1t+MC6LPbmz2rlMROsa62RvV8de/8IAj76HNOkh+e+dQJRFzfnMEi5ywRxeFdJ3eWFmDe3HsC8eOr6oDbtweT1ZBzKUXSRhRBbnV1oxAIXqz3bf/CuUKErm+a5+LhTpHtLRK5a0b3X2pA8sbbxwf+YwkAcvf5eJ1L7nMpUvJsG5Bule0fDkDyB6cf7J3uidAXX58Yuj4PQ19CsK42pFQJbf38vgUAvPfWZReAvJUmVLqH2FRGGDhST+aDfXUsAMvr15IT4LMnux2SCaSeVrao29151aykKtODmx8NAvhuJhB6o5bcrbohQ5JZV3qpk3j0lPG/f/S9QjAT8PS3h2f7rhlyKcFCQfjRcR/TeV16LbdJAARCV//ZKu40E3gpLu6Rl8tM1jY0s3vfSuBV/tXOOqeJCsNLFlHhcNRFcFyVMvoyVESE1tzZyh4UqokgwhpTyWh0HJUNzfjw6/cBgHE9vMulH7o+d11G2L6pUg7y6apU2g/tFEEA3H5oXZ+HVdOXoRsc4u7Fi+8fAqGz1fYFEEDgJ7qCewY9F4QXQUQEGYc9IKh+g3iFnn24gAQojAiiCBEBgu0RycWljSAAgH5ud6EgSCElXPiqadqsbTn5+f/XwfTj6CVIUxEKJAIiFBpWw/LtqQsABCDxw4uNCmn/OwqQgCRT5cvTH4cAUR690nN1NIiIiArrkSAg1CppQrlKAODdzw8RQIzeOzQ1UZFU1TICYSZqdf/uGyAiFt/4n3sAwKWTjQmppgzZGUGU1Jr8IAII3lr/4OlTOhjpckdTFYEXGW9XQhFLy09OBuHy9N6mjv6eGaDvvbtMKZkIRXyyk2ia2nOXSEBwR2U5eXSXAKiXkteVCilinGxWqRb95bQQgQd3Z21w+w8HAOin3zm2ZEpRieB8Q7R/851QgPHXmbOu5htfMgDBlXkrQhORIuRsnMtnQSDwl/2qAymvPXlEB2L6qwXVVFVA0ub9h2cIBA9uWhelRNTpnyDA2Lu4TElNxUFwOPNpBBD+VTsshq7r+mH+39vhQMjlnNVUJAfp60+mJTzLwxtV8/K4b9u+y5PrKxaPcvbioVoyWUNkmJwVE7F8PXfL9fO+a4Z+Sd6iiiouVCEi1nSjSPL7WSlF14/rg7a0tistis1uPwYJHszhVLPjicpO/1LKUa4m+82Qy/5s7MUHmQ8eIwxWrQO0SX9c+3pai1YHvli2JdtwWMFLCdmuXS23i14Ak6pprXuWTHB4kIchygb3R1N37w7bEftKOkcGzNAvJyVnFbFuDQ+PydHTN0yR26FN65h6sewhBVM/yj7koZdZyQGs0+b6GGKC0q69aTyIgCxWQ1k0Hl6Kb+yICPphZos2kJJGFmuH4hHxHaysKopWcsAsAAAAAElFTkSuQmCC",
+    "8": "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",
+  },
+  green: {
+    "0": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADg0lEQVR4nIVVTasdRRA9p7pm3meISNAoET9AIyKCSxeuXLkJCP4/F+5diXt3gqAi+LE1JgbBJEZf7n0z3VXHRc/MiybEvrPoO33q9FSdU938cCyj28nrx2d3KkkKAiAlIGUiFdGiNfcyjANx89krbxmKIECQEICk2P/+sBWvhA/jMPrw6vuXCQCEAKDDAQBx94s/gxA/Hg8PLn3w8gCwr/StL6aYvv5+P01ehvHkxgu2wriQ9YcAcPTe8VeEl+Hw3asFxCNQCoS4Eo9v3vwtfDw8vu4kwI4UQFEQoSVWp6/80dzH549WwhWp/tsCce270ceDUwe5EgIUFgywzg44+tWjk0ISROwWCvVKCihHPcIPinshSJDYf2uE0CIyMoSQXnrnoOdDevEVSDu9fBa2b1UZSSjPSS44s6FvTJB88bkrNhgMACQ6CKxYNzOi/9H54TTF/DBbpAByDlK9cHSDrVvr1i0dNLSphUCSkdxUcNvIpTaaavg0N5FWDLbUloQT1mckhyHrHDmcTC1UxnFvJACBZg4lF1UiEa21Op/XBoLMhQ8AV1UIoGpWafNfuxqwEhEZq1xKTwYXr0TmPObuQQvREmxabCECnhZYHBEZtQ5ntQVgbiYtmhOAhwndZchoNXKOSIhhFtyUATxjtR2iZcR5jUhYUErrSwIAT5gXgEABUqEUqOwOKKUAAIqZP8ztG+s07ee6by1J94NIb6syrfm+5GraOu3259Ncq1jKEC2PctmaGQ5t5lZk9iMCktQFW5KGY+0hruvqoSQXZE9GWwxS3RvAwrftRdAXR3S01JloRm04gpBDWlMTjFqkp3XnbO3o2kQCrbNBsD7I7bhw6SKM9GYQDcWKl3KhNOCr37qgtXig0dzdvWyMFFzCRU/6kBJLduSwMRJwcjtMYPCULMVSvBRPbHnKe8mWIpVBgAdI98FxMQQXLsojKyMYEll8KJuGANLxSH0aUnQKoDHV1dVq3K3g/tosAAmod5t4bW1syTNj+chnbgj/HcstoUhPTbkV/DHg8q4qLfL++RPW/z3uKi3i7E7+D273k8JazS/vPR2n279kWJ3iwWf3+LRx+/N9m61Oc9759Nf2eMYL3fTDJw9Q9/zo+OTSYMMbbx/5k2Dt/je3I+Psb28TeTrWH38GSXK5AfvFqYRSmW3azR4zkSeDwzpSa7eJSCgVUfe7afoHGbwLvLl6RNUAAAAASUVORK5CYII=",
+    "1": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADvElEQVR4nFVUQY4cRRCMyMqe3p31GDACIYEQMuLAL5C48gaexGs4AR/gzoULQuJiCYwtzM70TFdGcKieZd23lrIiIyIjk18EWmRkm3atZZAgLKmqX3pXlQQLSDIY0VrOz9+PxgDCRrmWX2GU7bABJMFobG3ef/McAAjAAHD6rvvisGUSThAk2XJ+0vD4y/2bqgqR45cEGBG5a3yrMOZd780h0gATJk1Eay3eKmRmRBA0QDvBYJDBrcUDLKNlVoUIGtw4toiItxGDrUUwEAKB3GAMgNwEXyEjSBKUjfx8d8nWcr7dvdqPggMAwNw/uztf4nLskozcTasNWPFjRLRgfrvBk9EiCyRp5LQ72rbEqWVkcuVgQgbBnQHbcM4zhuB1F5FtZm3aSZC8cYikGVObQZBVp/PlvJrJB6eIqU05HkbjIQEIvXqZO04xPgKOfbT98CIb7/LYPVy9eZpr0KN1xHwbFQf8s9BIRrt74hKm/e1+zlYcdprTgZcVbIf5cjqvSQZUMlmSWoQJgwChMdBa15LT7PcrW5s6T+stnjYHbJioU+8zfXl9WiUHeDoWGIyIqJPbsIUEUecT/O+x20CU7xERrbWI1ngJRIxAkcCCOm85Lqu1CGa0YGuOzUQEQFbv2hJ+IQLRNtCGGok0QRC8XAwCYFYPkgi2Tz/6rUegpW0DGUFirUHY+WdDZk7TNH118+ynuc87AqCNvhyPSy1L9Soj/26ZmdNumn758udjdQe3znU+Hk/L+dJ7ScgRbtj4/ofpdnhMwIMpeF2iMGjYsG0LNrhlDNcUASTSACzLtmzDHoBEGEM5x65BFqSqkqok8TqY7bgY8LhIslSuqipJGkElPShcLwxsKyqKKlXJph/dFl+3OQ3RRVUUU9UHIniVfV30sGCPvu6Sq/63ZBNvj9HbJUtVXSjJDxw3OAMmxmBdrJDiw+neY30eKI53ckIU2URV++TjJ+sLP+Y4aj0mY9slyIcPkvO718GMFdMjHw2UVRbPpfZmvc5QsvkQhQQsBmzpr9/vlvPLd65n0PI4O4CNNAhbIcsvlvfWva7WGJLkjWMq7BjRke51W3pQoWtOYCAwHDckS6XaJgO41G1DsOHcHLUY1aq6/NC6JMmyATuHod6al1RbHUpdHosGIGAYGr0l9X4VA1e5Btxm+IhnwVX9mh4A6r1LtS1KTpPXMR0Veqz9/Megfb9U7yVq9ObXh/uXyzhRLXOaD4dGALIur09LX7tKkp2f7V8dF0OgLdW6MEnaqvW89rI2Qf8B5IDgfnp0NA0AAAAASUVORK5CYII=",
+    "2": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAD5ElEQVR4nI1Vy24cRRQ959bthz12bGLZeWcB4RGQQGHDAgHKCiGQYMsi38SX8AdIiB2CBUICsggo4ZUQHBKMZzwz3VX3sJj2I8pEyl20uqtO3XPrPk7zzarypq7cU0rJCJNCAiQIkKKUiFKyV3VdNU1d72w3CQYA0OIhQrMHD4qiz114XdXtav3a9RGJJRbjr37pSInX23a0+fElX4YCAOQ7X+z387lXVbv+6RkCwBKXAqor659PSjFvV989Y6SZ8UkzI23nWt1U1tSbLyWSAJYAAZL+6pqbp/rcqp0g4zHp0Ve7Mzb3ej0ti+7kUrVauV+u1tNisZ89caOVBACwtc0VryoO2/99SYCpECAIQem9zUUUNLo7aANZnSKtzAtI0oDcLYpAkuaVH5NJTG0ODHmJw2IRNHczLqgZHWVdNwVpZmZ5iFggzU0JA4N6esquQlqSFAOQJOlIuzeTSPBhWN2ycDTrg0EMGRcAQh5tfwuKENN6KwWQRswKVh4wAhSYPDz3I4sSRazSnAYQIQXUTdMrNQUQCGWPed9RpNlMYjsipj2NJXjl+Y16ce0yLZ13cTCz5PRkBhy0XmaJvfzC61sERQDKkyg+x548FQMBGmYbM5V+48WzW2momKDxWMVn7JMkI2Bmhm4Wp65trVcguMih5jeRs3eUAFoyt5TUhb19sbWh3gCl8t0u++Ilw2iVp8oNwXNXz40wwAgAeXzzD88h363gdROK4vTnr55eMwxAAix7f9++300e7R/4v1XVhHkP8MI7Wy0PuwAkkL7ffTA9mOztjaeeknvd1vXo8lvn7ai5CSKPf/XbXd/302mfiyf3eqV57o2Xt+vjfiM4f7T7W6/Sd9PxNOeAJ6+b1YsfbjcnJ4Xdvft/dqS6yXwy73IoPHmzevbG6ORMKe5+s08YSu67edeXLNC9as/fGJ0YqZj889NdCChZpZQuFxGAp2b1g1PHihJ79+7cKyiRc0CKMkwGvap3TttRcONbP05BdV0vhYmCpUi1SnJvdlYGVD/+/dtirvmsyyGwsNqolHPpD/4KT2nkC3/7P/8wSZXl2azLIQLk9vtrEIT9zxr3apAo7H+d3NjP530RCCPTaH0DAMS1uSe3w/ENj6LSF9EEkpaGmSfr2m2hWwSAOYASNEiE0S2Bi+200InBo3KBQlrEBwxvC53yoxZF/UIukIBY8MnSpTR0OeiShkNnPsJyIwCYpKfsPw61CC39wTxugoWeBRiwUp6Jmh6lLNP6J8z68gzURHjkh3crAODTQ+BBFH6ycdpo8EQdZv7QBCEkgcp7PmsOjEy1MwaJPkYrpFBy5dn0f9P97zjdlh1VAAAAAElFTkSuQmCC",
+    "4": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAEVklEQVR4nGVUPY8cVRCsqu43sx/n2/P5DJwN2BIfGViyIOAjAQlsgYTE7yQjIUQEBCA+hIQgwAhjIYxtjLjz+nZn5r3XBLN7tkUyGk3XVHdXdzWvCiQhkCLNfHdxHCmRYqCWmstQcynhIkgQkEinRLWl4eKiAxG13LuNwYDiBEEwTNOn74Rk9KbY9OMDAkDg1idCRIWDBAgB5X41Mze1g7154AEAwGxnWWqlOcAASLGcJJknN9aXX03gCFRKQ5ZV5wYniOaekgvn35ts+ABacjHoAEgSMJjMU5Ni9sF0ywdAJs81fMRRkiyllJLp7XPaogKURBFOABJBc6Wm8eSXXkjAJvUYlUQ/tF4S2rbQmzY55u+3G8SYeTLxtu/pbpkgZ/NVcZNrfm16Wh4CgEIS9uWJIq10cHeH3toHueUjSVjTcnHoKREkc2nNk+ql53ysbUhbcJRh9izlNm1lsiQ34eCthiTJ5d0NLxG1eWZy5MZJH+bJPLWYv7c70nQ3zhIgArDCczsP1gK8bSR5amjvnhtV5V83Tov0Zm+vewAXrZkjmNpUXjn0Mf73N9uGAjgz79cWTomVMGM5e2UyRo+/9tgqSU3xoCCcrD3UgNFc2xuD699W0xW1mQ67PJRaHeyHZJ4M186PE4k7N3Y2DSMo7wIR4aFsnly4eoEgQNz9cdZ0IIEAQeaxpxpwd+O5K5PRO0c/cJbB09SIAahSral1p13fE0Fq+HU1IyhyHGBEUwIMJ9NElj48HN1Yb9/dbTqZu0cAAdN0Va1kf5hdCa89z5Hizi9uq1JKQBEBAJWxsmXyDsy6cLUdgcvv17Mh5whsN4i1YE3MlDz57PreiOu/O2kjaLatkAB4Ji375JZS+9FFkCDzzbut56AiSALBIFSbdljvKCV748VNj/d+ch/i6jtzUiShse+uJFu66fnXG4Iguy+H1AdQ0grQ1jdxtFqiGVzT6wsCIOPmZWcQ9//eW1BzIgDG5KWunnR/3HG7fHG8PuAL3F4sIAQwGDy/HwH8+Kn7vo04sDnVZFxEIhgmANiZSuKp1R/BNu+nHyXHZmc25+9xaDz2b90c0vGBJ3FEEAECgVCN/1E9kX/rWdXHE8RjoNhagQAiPN/6SpRIUgRAMQDg7DMggrj3J6LWn8PLvc+MlChSoO20pRCsbxyOhA8+j1xKga9nilEFUfCD/dxJrMebGoNq8pCH3rujWWMiTRRt90y/ChMjNt0StZQyrNfesyQ5JMqwmK9WWZLYxVbKEn2/7rNnlGwSYRaTnXzcNzQaV9rqU+uQcy6eAyjjtU/7zb+d9waLVTm9pRUxDLl6HgdPIV3YX62FWiO65eyRnrXPYPXKQlZhSGfP9ycR4awnRwd2ukil5Jj0vUctY9FnnoqHIZm47HYXy78WFQDwe8l5KBUeUVUsLPnqobWMPPTHuwtNv/1iFAksOVfAK1hZiXL/n2im6CNC65OpldmIq32XKwL/AQd35cZW6mBvAAAAAElFTkSuQmCC",
+    "5": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADp0lEQVR4nH1UPY8cVRCs6u7Z3buzDwkbJMAkCMmIACESImNZZIgQ/gK/iRxIEYTOiXBisJAQCCRkA0Yc9vnjPmbf6y6CmT3L5o6O3oxqquZVVzevWAyDh5lFuKknNiVJSvXqbd162DA8/9rg5jQnURIn2AytrPbnHVVELF//KACA+G8JAHTjq6zwxfKc2/yez8IIANo+t+7hPgxmOLXm78oX4WHhQZ6qu6E1o1uYBXk2DCBEo4W7Gc+QPsGKDNpEeBapAMCoeGGHy1k6D08BUdDBdi3DHRvCoy8pC1RO7gmCWF1VoCKGhhPtpfmqepswEFSLPKpEa7JhAEiSAGkRy3AjSZqR4GJAKY8zw+k285HV0NphlyixoLLW162tMxVuA06MFKOgKggQVLSStZatEKDHieG+MtkKrQgBjMGJZVYDEARtBnLBJqgQqRQZDgq28uXhuI7JUYCAX6yEphQCqH7UzAyolBBS1cy4fXU2WQAhqMZ7N+/Vej22rEj1PvfPd/7TwBcv373+FyON1tXAyclTyvzlj98Rwz16z9md00eB56/279xlbSxtWgPghPvJ09a1C77w6J1wP0neswEDgHPXvnbE/nqrP0n4qan0F3f31vG42/5910bqhAaM7ZiPOxf/7pFqv3zqZlNkOM+/gcTw/mvTjKx2CUP2lllVVZIqM3svCfTI639MX/tzwYDyyOekGFSCYGbm9GG8e2miPG8eYPWjRZ+US4ImYEQsdFgOAVzRYwhnJUQCKEklg7lXJSTORpDBWLo7CaISVVUizBcA+gYmAFHxyttuIOv7vSpVSiLYWSqbfSVgYfbWBwSAOrqPXoQkqDad4eYQHqvpZrZYjpIMRdIgcLO7CEDhC5u74lEQmJTRzN2MTzafgrA5JyuGYGYlcvDB3dKNEIAEgrYJ+EsGwTNLpEe4FS7GxHmACui4nADwyvn9At0kkCwZd16d3NF+VSAfrLcBALuf3Lj1WJpGi8TqzXd3p5uvHykj85+j7Ulg670rTweRszsH95RRfe/BhZNOnRJbUQ/3elrm+E3yf7Y42b8dx27Z2g+/6UwYAP1+M7NZtuP+2e06a7BJ/f5FjmOz3sbjg89/6mfx5a+fP2zHx51XVqut3aVf/vCC2TN/KlTdv34r+/joaIxstMda/PjzS29c2o6n5joP//jpdmWOj8axR3UQtbPwO3cNxBR1TRsXqspcH4xjz+gAVH1rOSAIVpEECoJQyuzHx2Nr2f8FMz4bCsumYmkAAAAASUVORK5CYII=",
+    "6": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADlklEQVR4nGVVTY8VVRA9p6pud/OGwZkMmAkag2HjwkjYkbD1B/iTNcYYF8QYSVxoYozCAAEG5GPmve5bx0Xf94XVeen7us+tOqc+bvMbiyhRaCIWhV4AQKogRAHmDmUi3EvpDDw4vWLhRhIEEpJA6eLJRenclOERBTj9+sQAgNiY5tt49uO7RScLL8Xj3p1hB7Jnfuv6g79L1Agvdv9uWT/f4LV5cu1ePBoYUeyTu92HsLac0Ysvn0+dWZT7HZs1zN6K5OFno0fEwaFx3xGEPcr9jb8szK8Gsf9i/5/AISw+5ZETAKi3/5Mcw7zL+8M4kDUH9VvQjQnQAAOUtz83AQDNo6OvqVs3oPQriDSaCS8AskmPoHH2T/qQtrAqGuk0kKTaq3C00CRyVcvFNIokzWnTXHiBPkTUOTRBKOlVmTBbeyIAil0flhuO9OJGdpkSIKp/brOL8ygBWgNa6a8kkxahnOClu3Z+lgCMOGLQwEYSEhmpXFkKyOrXQZqbMd+EJRqSOS1tgC1XChcTyq6Ym1HjWCNn2iDA6WV2XpcQnTLA2C+uLaRaa0ZCnGtttyGRQqsNRDL/fdofF9UxqqMByxf7hRYA5erNn49P+tUqKgpmILt90Izsr548fHZcxxAsvOneH4T1r9z59ezY4l0ZaFjr+dAoCP2tJ68iLqA5PXswQqAAERSPbv6+CKKJWSe9xV7vE6juIzFa5Teh96eA84Y+GEQ7RZj/tLyDoEBI/VHrcCBEzEDUn9OMoBeTYCbU06N1BIZtdJh3vdNiKFIChM4FAqJABrAeBVjpzErpXVkholaQsywptFVMTunWpZSZZNbl7EAEEE3K3MlWvagmAE01OYEARUAKbHBm7GxwihSAumLVPIVCKjZdBpBlmLPBzDqp1tmLiOkyEtpk2d04ly5zys0JCRBjQFhPoQd0gDemrOOULUdzRsTYaRSbcHq4ev9MWScpE3XrVIFU28Yb/PiGw6CUkKiyBThjk5GZzT2/QgC4frxp79aRACQDlnXDcgKgGbJzPAMjMmBvL7fykjtiW1gwX8IMwNMd4A7/rb0+66oh7eEWuf0gNOIAoEevikxg/vByl9YOdl798aBnmrL2l98/3pbnQ1v+8h3KsgaUeTL+dPN0EY282gUJGl//9rrvLi/HqAJ0WF88q7CspElK1gk1a02JpfeL9+MUQHDJ4aoHtJrohkyBFxM0LceaqeW0HMf6H0KdvOg5vjLVAAAAAElFTkSuQmCC",
+    "8": "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",
+  },
+  red: {
+    "1": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAADeElEQVR4nE2VvZLs1hGDP/RpcmZ3rxMlqpIylV5Ffl4/hnPFSlwOHdwq3f0hzzkNByRnd1KCQKOB5uiPCLXIyMxUV0iA7fIcZbtm751bJhBqam39+bksBIBh/u9H96wyir0/ZYQU0fL29NuvxAED4PXfvcbJz3xNEdGiteXl6X7xAaKeXnsVVJWtkYhALdenbDyAgozbR8hlU1gJUgQtIhp8oVQsAdhlgJQCFGqSvkwoS4qQKRcWeXCIsBpfkDQUgYTwIY0kJBNfpZEiJBBIcv7SKjLz/rLu3w/un07G5R/5tnt/H6NmOSM3hNlv//0PNqF/nisXoKxTJDM3Ss193qJsGMcDNaEghxASmQmG4deMtPCMa5UKxVoSQmS2LKCr/1hzba2yPZSlzCVnWDhCdwGW595x0iRJEYHUnqPdZVRLinsbmCbPp+UGOqQtKb956Nk/trncEnR7jlltXe8v7dABUGRq26X8tm67KgTMvk1+d/RRh2pEKFTTCFWvZCYam6dv9efzu9rL81U1qWYfDfXvezCdpe0th8Nt7lreb/h0HWLuWut1LAycI941egy5z4y5yVdLINiXOW8eoJyjNCY9azqqZjvNIBfUIKvbkIPScLVWU2U8uZIxoqZigkzWjKpgoeIIVcsBzIjSkpsUtsjvUXtvTb3luq4ltTjOVXN/37xtW+81y/l38Fbt3iLXOYqMNc6s57ZXf9vHPuYsB+oTLX4cvo6sFWhtxdX6xAOWEJgz5MfB6uN6G1JzwCqfdFSdpYiQr5eBZJTWVs3HSvqjFNfxntisjVh9FquX7pyuQ1+P0jlmtHa6GOMmdAAsg32SmuzQZIH8pjvi0Z5T9QTnINKAt5H346NwHRfG9kFIWhGW5kfLNaVPm8IH0gY77QZ8zIwlIlp7fEuvjZ3qYTX59T1C1+AXUCeXbeMEbdvRmE+bV3C2OYdM6aOOwviA+RNYYFPGOPCME2C7PlOTL1mMCYUMZVOucx+X66ry9UsbZBkoXLMesVl1Io/P4TmWjatqPtzEp4Sh0udq7cKuXg/beB6UZfs6uePvr2r2aF9n9MNcHMs74q/qvnCIOR8zQp50pZrNRcyvwAOKsROft26qRmPOvw7g65hjlo/dmTSyhU2VZ5vb8784Lkz7rBpjWliV4DishGfl2N5uEtjVP8b2tnVFI0r/BwImkdkDC/5OAAAAAElFTkSuQmCC",
+    "2": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAEhklEQVR4nG1Vy45dSRGMiMpz+t6+/bY9YM/g9uCxkBjxB7BjywLxDfwdG34CITSLkWAwDJIR9hjZ2O6Hu/s+zqnKYHFu24CIXUmhqMzKjCj+OkpEKUWSDJqAjXRm1rNyPNs/Og7bmyilL1EKZvNCEjYMpJ3I4Wiu6iuejJfnryOi9CqHjw+KCBCGJ2Sm03n15t3F6sXFGCU67ZyedgUkAcBI281Op9PHBy+fnS1bixLRPXkYEEkSMOx0KlNJK1UetutNHaL08eBhJ1IkARq209mUak7YPL38Vozouvs9CykSAmDbNNhgZ2Em+/svvRvSYi8oiQLx4XGUask0qOT+cX8cRf1OQdG8rEUCSFiJLbJkyn2Po7i37opEnYTH10sCtrMBma15phSQ0bEEC0iqdKybP58Dswerl2PZyTquGE9OkDJFOUhK0h7AqH3hz4t/OzvyuLoshAqYhsgMihTFFn616SEhD/djGJephKkkQXKrSC7XBxdP3aBvFv/YibY827SWIQoACDhkEiJ58+ayA/nPerBo6/MBRo5QCpa8QSCWfwqK0gahMrb9vaxnA40cAdI06PVleDZekCRVdnrUujtv9aqWClsGoFSqlD6cc4EgWdhynM1db66ztTaMPFkIqZQTDueIQlCqzM18l3V52VrbbNrxF/dmSZpoSUdjDl0RBXFZ9jmuz9LDkPtf3pdTZtpD7WvUcqWMQGFucBJt+X5oY/f9H3waaSMBuZ0NnWOjIQwXa8RRP66ulq3//LM73bRrSpg330U6Bjaqkdq0k1m7Pm/4/MuFnJgMRGj9u/c7y3VUAVmAOh7sbK6X809/dAQYzrSR9vjmq8vYLNdx1im60nN1N96Pu48enogJGKBptld/f77C8mo5xFXXRdfX1aGvFz9+sIitEUwQfv31mxXrcHMzDEED5LDYO3jyuAiTGgygvv36uck6roeWGSYVde/RDz/bJQx6a4KbF8++a1Stw2aomRkiSzv82el86nEC13959mYsJcdNHYex2QgwMP/VMUlDgAm4Pv1qVdXlOI6t1cy0EQzv//IEhCc5t/PnTy+Y0FBry2w5zTsk/OQet2tM+NW3Ly9QxlHr1jJtk4AaQ5v7jwowBRTf/f7FQHFYEW42iEKNUGYMvLvPqYvh7R//lpLasCbSNvpFgZ11/e46Vqd7MRHf/uH5QBHDOPEAHf70jo3Ev37TxZ27FEGab/8qITPbkKIBQt0nnwAwymKIx84p7whMEZpKghZRJAKgFX3MbyoIQJ7Kh3e8FECQEATDhBRez6e4I9BsuKBJ3o6S24erLZZnhyQgYPd7LQEKTtoAqJN+isyyfz+ei5MivnhyuxDTiIBt+JvancXNAXV7NfHfMGAQhIiAvf03Jh4/UrD9eGCa4cSHZj5iOhvTOpHMSPvDzcZ/8Lc10oCJGm7AbQjqf0Q/KjojR+j/NXJb71ZRsSnvv9kFYPEDV4Qzty6j2V2R/MXiOEgZs3KrWoqyZrYG28wWR4voY+hWnUqrJwtOZkbZj3YzQG1Yb6o19IuDO235b4d22C1PFNZTAAAAAElFTkSuQmCC",
+    "4": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAD+klEQVR4nHVVXYsdRRSsqnPmzt2Pm/gQo/mGkBVNogENiebB+KN9EQQFiW8SBdEE4kYEjZLVBJLdvXOn+xwfeu5mwdgvw9BF9Tl9qqp5iQAAggBJUSaTmYMAIuq4ioiozgYDQRJSw/UnThFMBJ4/zZJK+XE6UjKT23zj43MCgMDjb0ZkIT0BAonGTMnM+/69C4625vMhZEmf6ECScsndu/78tRmABAB6V2soW41IApBIM7P+5J0trBfNQAI+VShSktw6ny9uL/AKSJmFst0CQTa6mfcb18/aES7NZBLgSAIpADIzs27+1js9MFUEgiJA+mVftkZoNLPO+0+3JhiQgG31w2qs1TtrN0hCMrfND08ABHMCiiQVdO/WNUuSfOespv6AREIkgUzvZ0pQlGRufHNnBoLE0DckJQoKdT5rs5OZtP3Rhkxmevabu5ubSRJIyrhtaz1ofuuUJDMbHo2tFFOHJDJd2LT9QpmZ+fXzbMPc3ds2BJGpzuoIwAnb3IgS0c1wcacDSfCPx5TARJCcsz84HJwAokQKdXFtiyDIvR9ICsgEiKyl1vBkfVHgMvGT0yBB7v+88uClEz8ykcTBy8PVWDx1uDTRjDcvECSYu087JE+iq8lgXQUC8GJL0STu7FhTx6+PjAk8DJAJVCBJeK3VTMbFjUXD/XU/usxgEgwSAZBJH0mZy+6eJgji4P7QRRJJJJhkswk9qpmpu3WlmbE+eG5MJOiJRKZAQqQ/c3az/t0P1ICPHq4YgCzBZAKxWi6HYSz+ouuyO3lzUwDAvXsHiIDkCTAJYBwOl8tVcTPv53fPNF0dfLmPiHYm1kiIsuLyfn73qgAAq+/2MksSyOBRM4BZMTfvb9y0ZpLdn2rUQBIRMUVSZpO02/zMnc3WyIuvlky0W0pySpA0Bxk+m3/2dnNs3D8P1Gg5pDeYAIjFlVJr+fOJ+7mraqbT7Ve2B32y4uULSOS9L1yL2drFW1MCAphcCGA2AxKbMyc57fI4YU5/05dyUEe7x5HHcQTpwGuBr6Ji2vLMKaZeu7gGp+fE+D/I9enp9cnnJPkf4MVr7bv7AED8Er7652tSJHj0PpAA9H7je/ptRkSMfiA30iZSEhRp0HQEmbWUUgYvL3u3xtnSiZKqiZr6yDKOdRy8ZBqNFEiAapHqCbaHhTEOdTWOXiKkoyoJo6mqWQUAGLWOYyleMymqZRPAYtVMk2KRYNZaagnPSAY1vYWkQhmuWA8PUUutUT1TSAYmcYiyNKCuVcGotUYNV5cl2eRCMGhhkSi/f99mt1tLLTWCdxb7fx+qjZAkDDKp29h2Aomsw/4w1lr90uaz/cNYvwJiJRDGQxgBZGYZSq2R/wL7Nr2MmF/wQQAAAABJRU5ErkJggg==",
+    "5": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAD2klEQVR4nH2VW4+URRCG37eq+puZ3WWGXUQMQY2JEWNMvCFeGi/VP+Af8Bd6L/Fwa4wYE4wQkYhBwLAiu3P6uuv14ptZFjnURXc6/XRV16mbn5QoJTwMboSRXVkmSQIJNbVWs9aaUXw0e81BEgQI0HcFghAAJKR89A9qeDe5+EHHAQJOJp1Mar8toPDSjcZlADbMExEgIEfTwxJRugjfaOLzONDHZR3uQSN5yiy3hjUMMrqHRTGz/1venhAAOEgLN5j5sPOUdZ2oTKMhzBy0DUhA4EAQEAGIIoE4v+vhQxDrEUx62hkKknbqJIqTNBDE/AcDWUFoiD4BU4JGnA0vjWYEQLfOaWuaZOCQxk5rmo53Xg33RhoAkvQ37kamIY0gzUzjVlvt81JGiUY3gKCh3TZmFdQMIM1t3eZ99QvxIAxBDiAksRkaNdxS9Eyr/f740TJIGrEpCgbFkkpABC0sM7qd2eJIAZjb4LW71hJBQgljEAlyOtPSEaQ0pJA+yTZE2wFAdQWPYns4SmRI0OA1Zh/mSd4AKNvi8N6xM1a1KYSKrcazpwpiOJJ5+8bfMycRqcTg9bNFIRjefuXa/T1Ps5qik0YzI2ncipFmRtu/cn4JuLVKwuzJ7mmSNNr0SlkFotXiJbZWn+qFTSfo7Fs3o8W/bdJI8MkFufWcGmo8Lvx+1MVcvvgrsCFPvBY4mhYAkDAbL2ah1h5+BWoLchsd+e7l910AsVeqhdDTT3UMh36QfDd/3rkMSSjjXBiUx7CNuJlHhId7d2438IBmZrQxlkG1/rjbNAMBmkNKn3bz9IZIpRBWg4Rag3NwE6SR8Olk3QhzZ0IiGIxSIllhMAkSDWZ7Z9oSpDkNG9C6c5doAHVnSaREEZN9zmUES9KQJBQRr39mBNi+vFUSksxG53yeJgqNoCEBhcWoDCGMoAkpdAeT+YpS5lCaNEARsX2iOAyM/Z3FEoKQbRNfqoVrG+mAYCR2J3UJpISmk6QqxLZJ3oEAmcU0lwlJyv7MkDKtkJFY1wIAeO/HIwE2Pq4JKIE2fmdTJ3MohOVyAPe/uHpryVFJOASHX/xoNnCrpdVoefT4zLAefYrny+HcYa0e33/B/ok8OPK0VvO6Xs7lr+jTap9/Xns5eP1OqS1Ul3vfjN999jPaim5+660269ermle/f6E6/XS172qf0fr1fLb++pePLz33i7v33R8xbl4W/Hw02tmZes2DNw8mhYBheGNa7ecP7x5aeP8Y61VkpZntFq5v3UgAQjbvTOsVSbMJtDru+2zRzOqKdW+shmJoklkplm0KEcq6WPU1hf8A02DrINWhutoAAAAASUVORK5CYII=",
+    "7": "iVBORw0KGgoAAAANSUhEUgAAACgAAAAyCAAAAAAL2MZMAAAEOklEQVR4nG2Va48exRGFz6mqubzvrvFujC1hrrINUYiSSEhBkfK7+QEoHyMEMhcJBLEdg5DB4Nhe7zsz3V0nH2bW4uL+MJrufnTqdFdXN/8ZTn/JZeYkAEEAQJgMBAFQQARp1477gJEE19GVvGiilE/Cu/HdN0iAv5y8YFZ5Kb+Mvt/1/e+I3/FDWLjZc5C/nn/+J4aZcwNfoHvBPj0LASRfjAFc0XavDxLmF9hvYF18Hh5OAuCq+AJNQgCB+WF/FNd3rTwmdUE+p8Vh3Hpny+kYHvrmPyBByMLobfOF+NN+DV0e+k5hZA/jmq3obShiCsj59NQggHr89HIqzM9pAI2wzNzvDglmYvJX+s3lveiBCOlg5mYkgTaMqCTVlitXbfV6f7nsygjFuVkaXWYItVgSpoW3unVrDt93g3KJYRptLp5ME3YD53G/NKq+ekqAkH5aLrPNS7Ar46iSzbuhM4fmnSufjrfWwJge7i4tc22RxpZVTSIUTuQcWsrre4MA8OfDyTwttYYC/1NzWlZ6346Jc3aH4XqsS273u2UuNdOgMi0QlIDKs4I6lUO5esXWdrdwLrW2DLcSFQKMRmrqi1vtb2wOn3wbqK22BgtqIBxGkmYpuePmiZEk9d86tpRaWWKpir7CCTeasTDq0dtr+eHxjz1aZqIqSjXfnxtpdDML71nfHgkI0IPzK01KyUv8QFnMtWOYRYSJZyevbA6f3YlnSyml1lLijIbQtERYJ3SOQ3310pbl2+f9XOpSSq1LQDJ0fXOP6Iajnsv+lq+CP37dKWsVSDEIEjYe6N6N+85n/HW/cuVzlIWpTEkZIM3Rp9y6/c6yvHxzc/jDA9Y53VKQMUgz0nYHDPvRUPW3fhO8c7DMpUUnQRYkaGYhjoOxza9d3crr53usDahzDCAtDGZmtGONAS1+Y3OoTxY11UQe5tGIgJmZu18CgLpcfWtzePe+ldYyYbnUscugER7D0TEOysL3hpVbPkprmRIga8/6IWjm3h2dhHJWeevNzeGdR96yJagkWc+ruVmw24ex96X/u6/HcPq6WQIAzIwWWMJo6PY9IXRP3zndHD741jMToiVJI5uZmQ8uZWI6fqdb76z8WGxKmUTSjYww+rjzZkBZ/nh9E/zyO29rzUgEaFRk14+mmh2n50mZPmxSbZJEiIBoQR86ptxr+fO19Vzr9jlqa2pKCVjZiF0PCWiHo39sgR99lSgVqSZpjS7E2AuCIaf3j9c91J3vVJpSmU2QBFCIwU0EeXbt4nhNt7O1JmRNiZDABKInmwJLvfWHLSmffs9WG5BNEFLr+xVGkcqzS3+Jreb/Jai1VBqkdeUUggBoc75/ul3y/56QhLIhTQJAAswQYGTz7rP1jp++iDopkMp0Y2KtcARBN1Ef5DpAD6iEGaGUaX1YxCBJVO2YyoQgzfJJiASq3AAqQf0fEy6GoluUkaYAAAAASUVORK5CYII=",
+  },
+};
+
+  let COST_TEMPLATES = { blue: {}, green: {}, red: {} };
+  let templatesReady = false;
+
+  async function loadCostTemplates() {
+    for (const [color, digits] of Object.entries(COST_TEMPLATE_B64)) {
+      for (const [digit, b64] of Object.entries(digits)) {
+        const img = new Image();
+        await new Promise(r => { img.onload = r; img.src = 'data:image/png;base64,' + b64; });
+        const c = document.createElement('canvas');
+        c.width = 40; c.height = 50;
+        c.getContext('2d').drawImage(img, 0, 0, 40, 50);
+        const data = c.getContext('2d').getImageData(0, 0, 40, 50).data;
+        const gray = new Float32Array(40 * 50);
+        for (let i = 0; i < gray.length; i++) gray[i] = data[i*4]*0.299 + data[i*4+1]*0.587 + data[i*4+2]*0.114;
+        COST_TEMPLATES[color][digit] = gray;
+      }
+    }
+    templatesReady = true;
+  }
+
+  function matchCostDigitTemplate(canvas, detectedColor) {
+    if (!templatesReady) return null;
+    const c = document.createElement('canvas');
+    c.width = 40; c.height = 50;
+    c.getContext('2d').drawImage(canvas, 0, 0, 40, 50);
+    const data = c.getContext('2d').getImageData(0, 0, 40, 50).data;
+    const gray = new Float32Array(40 * 50);
+    for (let i = 0; i < gray.length; i++) {
+      gray[i] = data[i*4]*0.299 + data[i*4+1]*0.587 + data[i*4+2]*0.114;
+    }
+    const colorKey = detectedColor === '赤_up' ? 'red'
+                   : detectedColor === '緑_down' ? 'green' : 'blue';
+    const primary  = COST_TEMPLATES[colorKey];
+    const fallback = COST_TEMPLATES['blue'];
+    const TMPL_EXCLUDED = new Set(['4','5','6','7','8','9','X','Ø']);
+    const allDigits = new Set([...Object.keys(primary), ...Object.keys(fallback)].filter(d => !TMPL_EXCLUDED.has(d)));
+    let best = null, bestScore = Infinity;
+    for (const digit of allDigits) {
+      const tmpl = primary[digit] ?? fallback[digit];
+      let diff = 0;
+      for (let i = 0; i < gray.length; i++) diff += Math.abs(gray[i] - tmpl[i]);
+      const avg = diff / gray.length;
+      if (avg < bestScore) { bestScore = avg; best = digit; }
+    }
+    return bestScore < 65 ? best : null;
+  }
+
+  loadCostTemplates();
+
+  /* ============================================================
+     コスト数字識別（特徴点B-R差分方式）
+     閾値TH=40、色別チャンネル差分でストロークを検出
+     プローブ点・指紋は一貫性貪欲法（暗/明両方で安定した座標のみ使用）で導出
+  ============================================================ */
+  const COST_PROBES = {
+    blue:  [[3,41],[12,13],[8,4],[12,34],[0,28]],
+    green: [[0,0],[9,10],[13,45],[1,22]],
+    red:   [[0,0],[11,0],[0,1],[11,11]],
+  };
+  const COST_FINGERPRINTS = {
+    blue: {
+      'Ø':[0,0,0,0,0],'0':[0,1,0,1,0],'1':[1,1,1,1,1],'2':[1,1,0,1,0],
+      '3':[1,0,1,1,0],'4':[1,0,0,0,1],'5':[0,0,1,1,0],'6':[0,1,1,1,0],
+      '7':[0,1,0,0,0],'8':[1,0,0,0,0],'9':[0,0,0,1,0],'X':[1,0,1,0,0],
+    },
+    green: {
+      '0':[1,0,1,0],'1':[0,1,0,1],'2':[0,1,1,0],
+      '4':[0,0,1,0],'5':[1,1,1,0],'6':[1,1,0,0],'8':[0,1,0,0],
+    },
+    red: {
+      '1':[1,0,1,1],'2':[1,1,1,0],'4':[0,1,0,1],
+      '5':[0,1,1,1],'7':[1,1,1,1],
+    },
+  };
+  const COST_TH = 40;
+
+  function detectCostDigit(canvas, detectedColor) {
+    const colorKey = detectedColor === '赤_up' ? 'red'
+                   : detectedColor === '緑_down' ? 'green' : 'blue';
+    const probes = COST_PROBES[colorKey];
+    const fps    = COST_FINGERPRINTS[colorKey];
+    const ctx    = canvas.getContext('2d');
+
+    // 各プローブ点のチャンネル差分を取得
+    const bits = probes.map(([y, x]) => {
+      const d = ctx.getImageData(x, y, 1, 1).data;
+      const r = d[0], g = d[1], b = d[2];
+      let diff;
+      if (colorKey === 'red')        diff = r - b;
+      else if (colorKey === 'green') diff = g - r;
+      else                           diff = b - r;
+      return diff >= COST_TH ? 1 : 0;
+    });
+
+    // 完全一致を探す
+    for (const [digit, fp] of Object.entries(fps)) {
+      if (fp.every((v, i) => v === bits[i])) return digit;
+    }
+
+    // 不明 or 未登録色 → blue指紋でフォールバック
+    if (colorKey !== 'blue') {
+      const blueFps  = COST_FINGERPRINTS.blue;
+      const blueProbes = COST_PROBES.blue;
+      const blueBits = blueProbes.map(([y, x]) => {
+        const d = ctx.getImageData(x, y, 1, 1).data;
+        return (d[2] - d[0]) >= COST_TH ? 1 : 0;
+      });
+      for (const [digit, fp] of Object.entries(blueFps)) {
+        if (fp.every((v, i) => v === blueBits[i])) return digit;
+      }
+    }
+    return null;
+  }
+
+  let results = [];
+  let confirmItems = []; // { resultIdx, excluded, charName, cardKey, hiramekiNum, kakureEffect, shinEffect, matchScore }
+  let currentBlocks = {}; // parseShortcutTextの結果を保持
+  let patternMode = 'auto'; // 'auto' | 'p2' | 'p1'
+  let cardMode = 'character'; // 'character' | 'shared'
+  let dataReady = false; // JSONロード完了フラグ
+
+  function setCardMode(mode) {
+    cardMode = mode;
+    const charBtn   = document.getElementById('toggleCharBtn');
+    const sharedBtn = document.getElementById('toggleSharedBtn');
+    if (mode === 'character') {
+      charBtn.style.borderColor   = '#78DEC1';
+      charBtn.style.background    = 'rgba(120,222,193,0.15)';
+      charBtn.style.color         = '#78DEC1';
+      sharedBtn.style.borderColor = '#444';
+      sharedBtn.style.background  = 'transparent';
+      sharedBtn.style.color       = '#666';
+    } else {
+      sharedBtn.style.borderColor = '#fbbf24';
+      sharedBtn.style.background  = 'rgba(251,191,36,0.15)';
+      sharedBtn.style.color       = '#fbbf24';
+      charBtn.style.borderColor   = '#444';
+      charBtn.style.background    = 'transparent';
+      charBtn.style.color         = '#666';
+    }
+    // モード切替時にテキスト読み込み済みなら再レンダリング
+    if (dataReady && Object.keys(currentBlocks).length > 0) {
+      renderConfirmCards(currentBlocks, false);
+    }
+  }
+
+  /* ============================================================
+     JSONデータ読み込み
+  ============================================================ */
+  const DATA_BASE = 'https://raw.githubusercontent.com/A-zorro/-/main/data/';
+  let characterData  = {}; // { キャラ名: { cards: {...} } }
+  let sharedData     = {}; // { 'K02-恒常コスト1': { cards: {...}, arenaCards: {...} } }
+  let hiramekiEffects = {}; // { '001-01': '効果テキスト', ... }（後方互換用・全エントリ）
+  let hiramekiShinSections  = []; // 神ヒラメキ用セクション構造
+  let hiramekiKakureSections = []; // 隠れヒラメキ用セクション構造（★のみ）
+  let ocrDict = { corrections: {}, terms: [] };
+
+  function debugLog(msg) {
+    const panel = document.getElementById('debugPanel');
+    if (panel) panel.textContent += msg + '\n';
+    console.log(msg);
+  }
+
+  async function loadDataFiles() {
+    debugLog('[start] loadDataFiles開始');
+    try {
+      debugLog('[fetch] manifest / ヒラメキリスト / OCR辞典 fetch開始');
+      const [manifestRes, shinRes, kakureRes, ocrRes] = await Promise.all([
+        fetch(DATA_BASE + 'manifest.json'),
+        fetch(DATA_BASE + encodeURIComponent('神ヒラメキリスト.json')),
+        fetch(DATA_BASE + encodeURIComponent('隠ヒラメキリスト.json')),
+        fetch(DATA_BASE + encodeURIComponent('OCR辞典.json')),
+      ]);
+      debugLog(`[fetch] manifest: ${manifestRes.status} / shin: ${shinRes.status} / kakure: ${kakureRes.status} / ocr: ${ocrRes.status}`);
+      const manifest = await manifestRes.json();
+      const shinJson   = shinRes.ok   ? await shinRes.json()   : { sections: [] };
+      const kakureJson = kakureRes.ok ? await kakureRes.json() : { sections: [] };
+      hiramekiShinSections   = shinJson.sections   || [];
+      hiramekiKakureSections = kakureJson.sections || [];
+      // 後方互換：全エントリをフラット辞書にも展開
+      hiramekiEffects = {};
+      for (const sec of hiramekiShinSections) {
+        for (const grp of (sec.groups || [])) {
+          for (const [id, text] of Object.entries(grp.entries || {})) {
+            hiramekiEffects[id] = text;
+          }
+        }
+      }
+      ocrDict = await ocrRes.json();
+      debugLog(`[manifest] characters: ${JSON.stringify(manifest.characters)}`);
+      debugLog(`[manifest] shared: ${JSON.stringify(manifest.shared)}`);
+
+      await Promise.all(manifest.characters.map(async entry => {
+        const id   = (typeof entry === 'string') ? entry : entry.id;
+        const name = (typeof entry === 'string') ? entry : entry.name;
+        const res = await fetch(DATA_BASE + encodeURIComponent(id + '.json'));
+        debugLog(`[chara] ${name}: ${res.status}`);
+        if (res.ok) {
+          characterData[name] = await res.json();
+        } else {
+          debugLog(`[chara] SKIP ${name} → 404（ファイル名確認要）`);
+        }
+      }));
+
+      // shared JSON読み込み
+      if (manifest.shared && manifest.shared.length > 0) {
+        await Promise.all(manifest.shared.map(async name => {
+          const url = DATA_BASE + encodeURIComponent(name + '.json');
+          debugLog(`[shared] fetch: ${name}`);
+          const res = await fetch(url);
+          debugLog(`[shared] ${name}: ${res.status}`);
+          if (res.ok) {
+            sharedData[name] = await res.json();
+            const cardCount = Object.keys(sharedData[name].cards || {}).length;
+            debugLog(`[shared] ${name} カード数: ${cardCount}`);
+          } else {
+            debugLog(`[shared] ERROR ${name} → ${res.status} ${res.statusText}`);
+          }
+        }));
+      } else {
+        debugLog('[shared] manifest.sharedが空またはなし');
+      }
+
+      debugLog(`[完了] キャラ: ${Object.keys(characterData).length}人 / 共用: ${Object.keys(sharedData).length}ファイル`);
+      dataReady = true;
+
+      // ローディング表示を消す
+      const loadingMsg = document.getElementById('dataLoadingMsg');
+      if (loadingMsg) loadingMsg.style.display = 'none';
+
+      // テキストファイルが先に読み込まれていた場合は再レンダリング（ヒラメキタブ依存バグ修正）
+      if (Object.keys(currentBlocks).length > 0) {
+        renderConfirmCards(currentBlocks, false);
+      }
+    } catch (e) {
+      debugLog(`[ERROR] ${e.message}\n${e.stack}`);
+      console.warn('データ読み込みエラー（照合機能は限定動作）:', e);
+      dataReady = true; // エラー時もフラグを立てて処理を止めない
+      const loadingMsg = document.getElementById('dataLoadingMsg');
+      if (loadingMsg) loadingMsg.style.display = 'none';
+    }
+  }
+  loadDataFiles();
+
+  /* ============================================================
+     OCR正規化・照合ロジック
+  ============================================================ */
+  function normalizeOCR(text) {
+    let result = text || '';
+    // 誤認識テーブルで直接置換
+    for (const [wrong, correct] of Object.entries(ocrDict.corrections || {})) {
+      result = result.replaceAll(wrong, correct);
+    }
+    // 句読点（、）を除外して照合する
+    // 理由：ゲーム画像に「、」がない箇所にClaudeが勝手に補完したテキストが
+    // JSONやPDFに混入している可能性があるため、比較時のみ除外して精度を保つ。
+    // 記録テキスト自体は変更しない。
+    result = result.replace(/、/g, '');
+    return result.replace(/\s+/g, '');
+  }
+
+  function getBigrams(text) {
+    const set = new Set();
+    for (let i = 0; i < text.length - 1; i++) set.add(text.slice(i, i + 2));
+    return set;
+  }
+
+  function similarity(a, b) {
+    const ba = getBigrams(a), bb = getBigrams(b);
+    if (ba.size === 0 && bb.size === 0) return 1;
+    if (ba.size === 0 || bb.size === 0) return 0;
+    let inter = 0;
+    for (const g of ba) { if (bb.has(g)) inter++; }
+    return inter / (ba.size + bb.size - inter);
+  }
+
+  function matchHirameki(ocrEffectText, ocrKind) {
+    const norm = normalizeOCR(ocrEffectText);
+    const candidates = [];
+
+    // ヒラメキリストの全効果テキストリスト（組み合わせ用）
+    const effectValues = Object.values(hiramekiEffects);
+
+    if (cardMode === 'shared') {
+      // ── 共用版：sharedDataのbaseEffectと照合 ──
+      for (const [fileName, fileData] of Object.entries(sharedData)) {
+        for (const [cardName, card] of Object.entries(fileData.cards || {})) {
+          const baseNorm = normalizeOCR(card.baseEffect);
+          let bestScore = similarity(norm, baseNorm);
+          for (const addEffect of effectValues) {
+            const combined = normalizeOCR(card.baseEffect + addEffect);
+            const s = similarity(norm, combined);
+            if (s > bestScore) bestScore = s;
+          }
+          if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
+          candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+        }
+        for (const [cardName, card] of Object.entries(fileData.arenaCards || {})) {
+          const baseNorm = normalizeOCR(card.baseEffect);
+          let bestScore = similarity(norm, baseNorm);
+          for (const addEffect of effectValues) {
+            const combined = normalizeOCR(card.baseEffect + addEffect);
+            const s = similarity(norm, combined);
+            if (s > bestScore) bestScore = s;
+          }
+          if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
+          candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+        }
+      }
+    } else {
+      // ── キャラ版：characterDataのhiramekiと照合 ──
+      for (const [charName, charData] of Object.entries(characterData)) {
+        if (!charData.cards) continue;
+        for (const [cardKey, card] of Object.entries(charData.cards)) {
+          if (!card.hirameki) continue;
+          for (let n = 1; n <= 5; n++) {
+            const h = card.hirameki[String(n)];
+            if (!h) continue;
+            const hiramekiKind = h.kind || card.kind;
+            const baseNorm = normalizeOCR(h.effect);
+
+            // ① ベース効果単体のスコア
+            let bestScore = similarity(norm, baseNorm);
+
+            // ② ベース効果＋追加効果の組み合わせで最高スコアを探す
+            for (const addEffect of effectValues) {
+              const combined = normalizeOCR(h.effect + addEffect);
+              const s = similarity(norm, combined);
+              if (s > bestScore) bestScore = s;
+            }
+
+            // 種別一致ボーナス
+            if (ocrKind && hiramekiKind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
+
+            candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score: bestScore, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
+          }
+
+          // X-6：基本効果と比較
+          const baseNorm = normalizeOCR(card.baseEffect);
+          let bestX6 = similarity(norm, baseNorm);
+          for (const addEffect of effectValues) {
+            const combined = normalizeOCR(card.baseEffect + addEffect);
+            const s = similarity(norm, combined) * 0.9;
+            if (s > bestX6) bestX6 = s;
+          }
+          if (ocrKind && card.kind === ocrKind) bestX6 = Math.min(1, bestX6 + 0.1);
+          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: bestX6, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
+        }
+      }
+    }
+    return candidates.sort((a, b) => b.score - a.score);
+  }
+
+  function setPattern(mode) {
+    patternMode = mode;
+    document.getElementById('btnAuto').classList.toggle('active', mode === 'auto');
+    document.getElementById('btnP2').classList.toggle('active',   mode === 'p2');
+    document.getElementById('btnP1').classList.toggle('active',   mode === 'p1');
+  } // { canvas, winner, scoreDiff }
+
+  /* ============================================================
+     画像読み込み・一括処理
+  ============================================================ */
+  async function handleFiles(e) {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    results = [];
+    const resultSection = document.getElementById('resultSection');
+    const resultList    = document.getElementById('resultList');
+
+    resultSection.style.display = 'block';
+    resultList.innerHTML = `<div class="processing">⏳ ${files.length}枚を処理中...</div>`;
+
+    for (let i = 0; i < files.length; i++) {
+      const result = await processFile(files[i], i + 1);
+      results.push(result);
+    }
+
+    renderResultList();
+    renderCostList();
+    document.getElementById('costSection').style.display = 'block';
+    document.getElementById('mergeSection').style.display = 'block';
+    document.getElementById('resetSection').style.display = 'block';
+    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function processFile(file, index) {
+    // ファイル読み込み
+    const dataUrl = await new Promise(r => {
+      const reader = new FileReader();
+      reader.onload = ev => r(ev.target.result);
+      reader.readAsDataURL(file);
+    });
+    const img = await new Promise(r => {
+      const i = new Image();
+      i.onload = () => r(i);
+      i.src = dataUrl;
+    });
+
+    // パターン判定
+    const pattern = patternMode === 'auto' ? detectPattern(img) : patternMode;
+    const cropKey = pattern === 'p2' ? CROP_P2 : CROP_P1;
+
+    // 神様識別
+    const canvas = cropToCanvas(img, cropKey);
+    const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    const { winner, sorted, scoreDiff } = identifyGod(imageData);
+
+    // コスト識別（p2のみ）
+    let costDigit = null, costTmpl = null, costFeat = null, costColor = null, costCanvas = null;
+    if (pattern === 'p2') {
+      costCanvas = cropCostCanvas(img);
+      const costData = costCanvas.getContext('2d').getImageData(0, 0, 50, 60);
+      costColor = detectCostColor(costData);
+
+      // テンプレマッチング優先 → 失敗時に特徴点検出フォールバック
+      const tmplResult  = matchCostDigitTemplate(costCanvas, costColor);
+      const featResult  = detectCostDigit(costCanvas, costColor);
+      let rawDigit = tmplResult ?? featResult ?? null;
+
+      costDigit = rawDigit;
+      costTmpl  = tmplResult;
+      costFeat  = featResult;
+    }
+
+    // カード名領域クロップ（p2のみ・絶対座標）
+    let nameCanvas = null;
+    if (pattern === 'p2') {
+      nameCanvas = document.createElement('canvas');
+      nameCanvas.width = 300; nameCanvas.height = 480;
+      nameCanvas.getContext('2d').drawImage(img, 530, 140, 300, 480, 0, 0, 300, 480);
+    }
+
+    return { index, canvas, winner, scoreDiff, sorted,
+             costDigit, costTmpl, costFeat, costColor, costCanvas, nameCanvas, isP2: pattern === 'p2' };
+  }
+
+  // 16:9判定（パターン2）かそれ以外（パターン1）
+  function detectPattern(img) {
+    const ratio = img.naturalWidth / img.naturalHeight;
+    return (ratio > 1.6 && ratio < 1.9) ? 'p2' : 'p1';
+  }
+
+  function cropToCanvas(img, crop) {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    const sx = Math.floor(crop.x1 * W);
+    const sy = Math.floor(crop.y1 * H);
+    const sw = Math.max(1, Math.floor((crop.x2 - crop.x1) * W));
+    const sh = Math.max(1, Math.floor((crop.y2 - crop.y1) * H));
+    const c = document.createElement('canvas');
+    c.width = sw; c.height = sh;
+    c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    return c;
+  }
+
+  /* ============================================================
+     神様識別（最近傍距離方式）
+  ============================================================ */
+  function identifyGod(imageData) {
+    const pixels = imageData.data;
+    const sums = {}, counts = {};
+    for (const name of GOD_NAMES) { sums[name] = 0; counts[name] = 0; }
+
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i+3] < 128) continue;
+      const px = [pixels[i], pixels[i+1], pixels[i+2]];
+      for (const [name, colors] of Object.entries(GOD_RGB)) {
+        let minD = Infinity;
+        for (const c of colors) {
+          const d = Math.sqrt((px[0]-c[0])**2 + (px[1]-c[1])**2 + (px[2]-c[2])**2);
+          if (d < minD) minD = d;
+        }
+        sums[name] += minD;
+        counts[name]++;
+      }
+    }
+
+    const avgDists = {};
+    for (const name of GOD_NAMES) {
+      avgDists[name] = counts[name] > 0 ? sums[name] / counts[name] : Infinity;
+    }
+
+    const sorted    = Object.entries(avgDists).sort((a,b) => a[1]-b[1]);
+    const scoreDiff = sorted[1][1] - sorted[0][1];
+    return { winner: sorted[0][0], sorted, scoreDiff };
+  }
+
+  /* ============================================================
+     結果リスト描画
+  ============================================================ */
+
+  /* ============================================================
+     コスト確認リスト描画（STEP 3）
+  ============================================================ */
+  function renderCostList() {
+    const list = document.getElementById('costList');
+    list.innerHTML = '';
+
+    const DC = { '0':'#FFFFFF','1':'#FFFF00','2':'#FF7F00','3':'#FF0000',
+                 '4':'#FF00FF','5':'#7F00FF','6':'#0000FF','7':'#007FFF',
+                 '8':'#00FFFF','9':'#00FF00','X':'#7FFF00','Ø':'#969696' };
+    const COLOR_STATES = [
+      { value:'青_normal', kanji:'青', en:'normal', color:'#007FFF' },
+      { value:'赤_up',     kanji:'赤', en:'up',     color:'#FF0000' },
+      { value:'緑_down',   kanji:'緑', en:'down',   color:'#00FF00' },
+    ];
+
+    results.forEach((r, idx) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'padding:10px;background:#333;border-radius:10px;border:1px solid #444;margin-bottom:8px;';
+
+      // 番号 + ヒント行
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+      const num = document.createElement('div');
+      num.style.cssText = 'font-size:13px;font-weight:700;color:#888;width:22px;text-align:center;flex-shrink:0;';
+      num.textContent = r.index;
+      header.appendChild(num);
+
+      if (r.isP2) {
+        const hint = document.createElement('div');
+        hint.className = 'cost-check';
+        const tm = r.costTmpl ?? '-', ft = r.costFeat ?? '-';
+        hint.innerHTML =
+          `テンプレ:<span style="color:${tm!=='-'?'#7eb8d4':'#555'};margin-left:3px">${tm}</span>` +
+          `&nbsp;|&nbsp;特徴点:<span style="color:${ft!=='-'?'#a78bfa':'#555'};margin-left:3px">${ft}</span>`;
+        header.appendChild(hint);
+      }
+      wrap.appendChild(header);
+
+      if (!r.isP2) {
+        wrap.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:#555;font-style:italic;padding-left:30px;">切り抜きモード（コスト判別なし）</div>');
+        list.appendChild(wrap);
+        return;
+      }
+
+      // 5列3行グリッド
+      const grid = document.createElement('div');
+      grid.className = 'cost-grid';
+
+      // [0,0] プレビューcanvas
+      const prev = document.createElement('canvas');
+      prev.className = 'cost-preview-cell';
+      prev.width = 50; prev.height = 60;
+      if (r.costCanvas) prev.getContext('2d').drawImage(r.costCanvas, 0, 0);
+      grid.appendChild(prev);
+
+      // 初期選択: テンプレ優先→特徴点→null
+      // ※自動識別結果が4以上の場合は0として扱う（processFile側でも同様の処理済み）
+      let selDigit = r.costTmpl ?? r.costFeat ?? null;
+      // colorIdxをupdateDispより前に定義（TDZ回避）
+      let colorIdx = Math.max(0, COLOR_STATES.findIndex(s => s.value === r.costColor));
+
+      // [1,0] 数字表示セル
+      const digitDisp = document.createElement('div');
+      digitDisp.className = 'cost-digit-display';
+      digitDisp.style.gridRow = '2'; digitDisp.style.gridColumn = '1';
+      function updateDisp() {
+        const d = selDigit ?? '?';
+        const c = COLOR_STATES[colorIdx].color;
+        digitDisp.innerHTML = `<span>${d}</span>`;
+        digitDisp.style.color = c;
+        digitDisp.style.borderColor = selDigit ? c : '#444';
+        const inp = document.getElementById(`costDigit-${idx}`);
+        if (inp) inp.value = selDigit ?? '';
+      }
+      grid.appendChild(digitDisp);
+
+      // [2,0] 色トグルセル
+      const colorToggle = document.createElement('div');
+      colorToggle.className = 'cost-color-toggle';
+      colorToggle.style.gridRow = '3'; colorToggle.style.gridColumn = '1';
+      // btnsとDIGITSをupdateColorより先に定義
+      const DIGITS = ['0','1','2','3','4','5','6','7','8','9','X','Ø'];
+      const btns = {};
+
+      function updateColor() {
+        const s = COLOR_STATES[colorIdx];
+        colorToggle.style.borderColor = s.color;
+        colorToggle.style.color = s.color;
+        colorToggle.innerHTML = `<span class="cjk">${s.kanji}</span><span class="eng">${s.en}</span>`;
+        const inp = document.getElementById(`costColor-${idx}`);
+        if (inp) inp.value = s.value;
+        // 表示セルも色状態に合わせて更新
+        updateDisp();
+        // 選択ボタンの枠も更新
+        Object.values(btns).forEach(b => {
+          if (b.classList.contains('selected')) b.style.borderColor = s.color;
+        });
+      }
+      updateColor();
+      colorToggle.addEventListener('click', () => {
+        colorIdx = (colorIdx + 1) % COLOR_STATES.length;
+        updateColor();
+      });
+      grid.appendChild(colorToggle);
+
+      // 数字ボタン 0-3(row1), 4-7(row2), 8-9-X-Ø(row3)
+      DIGITS.forEach((d, di) => {
+        const btn = document.createElement('button');
+        const midDigits  = new Set(['4','5','6','7']);
+        const darkDigits = new Set(['8','9','X','Ø']);
+        const brightnessClass = midDigits.has(d) ? ' dc-mid' : darkDigits.has(d) ? ' dc-dark' : '';
+        btn.className = 'digit-btn' + brightnessClass;
+        btn.style.gridRow  = String(Math.floor(di/4)+1);
+        btn.style.gridColumn = String((di%4)+2);
+        btn.innerHTML = `<span>${d}</span>`;
+        if (d === selDigit) {
+          btn.classList.add('selected');
+          btn.style.borderColor = COLOR_STATES[colorIdx].color;
+        }
+        btn.addEventListener('click', () => {
+          Object.values(btns).forEach(b => {
+            b.classList.remove('selected');
+            b.style.borderColor = '#444';
+          });
+          btn.classList.add('selected');
+          btn.style.borderColor = COLOR_STATES[colorIdx].color;
+          selDigit = d;
+          updateDisp();
+        });
+        btns[d] = btn;
+        grid.appendChild(btn);
+      });
+
+      wrap.appendChild(grid);
+
+      // 隠しinput（mergeData用）
+      const hd = document.createElement('input');
+      hd.type='hidden'; hd.id=`costDigit-${idx}`; hd.value=selDigit??'';
+      const hc = document.createElement('input');
+      hc.type='hidden'; hc.id=`costColor-${idx}`; hc.value=COLOR_STATES[colorIdx].value;
+      wrap.appendChild(hd); wrap.appendChild(hc);
+
+      list.appendChild(wrap);
+    });
+  }
+  function renderResultList() {
+    const list = document.getElementById('resultList');
+    list.innerHTML = '';
+
+    results.forEach((r, idx) => {
+      const isLow = r.scoreDiff < 3.0;
+      const div = document.createElement('div');
+      div.className = `result-item${isLow ? ' low-conf' : ''}`;
+
+      // プレビューcanvas
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.className = 'item-preview';
+      previewCanvas.width  = r.canvas.width;
+      previewCanvas.height = r.canvas.height;
+      previewCanvas.getContext('2d').drawImage(r.canvas, 0, 0);
+      previewCanvas.onclick = () => showModal(r.canvas);
+
+      // セレクト
+      const select = document.createElement('select');
+      select.className = 'item-select';
+      applyGodStyle(select, r.winner);
+      // 神様6種 + 通常ヒラメキ
+      [...GOD_NAMES, '通常ヒラメキ'].forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name === '通常ヒラメキ' ? '🟡 通常ヒラメキ' : name;
+        if (name === r.winner) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', () => {
+        results[idx].winner = select.value;
+        applyGodStyle(select, select.value);
+      });
+
+      // 信頼度
+      const conf = document.createElement('div');
+      conf.className = `item-conf${isLow ? ' warn' : ''}`;
+      conf.textContent = isLow
+        ? `⚠ スコア差${r.scoreDiff.toFixed(2)}（要目視確認）`
+        : `✓ スコア差${r.scoreDiff.toFixed(2)}`;
+
+      const body = document.createElement('div');
+      body.className = 'item-body';
+      body.appendChild(select);
+      body.appendChild(conf);
+
+      const num = document.createElement('div');
+      num.className = 'item-num';
+      num.textContent = r.index;
+
+      div.appendChild(num);
+      div.appendChild(previewCanvas);
+      div.appendChild(body);
+      list.appendChild(div);
+    });
+  }
+
+  /* ============================================================
+     ショートカットファイル読み込み
+  ============================================================ */
+  let shortcutRawText = '';
+
+  function loadShortcutFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      shortcutRawText = ev.target.result;
+      document.getElementById('shortcutFileName').textContent = `📄 ${file.name} を読み込んだよ！`;
+      document.getElementById('shortcutLoaded').style.display = 'block';
+      document.getElementById('mergeResult').style.display    = 'none';
+      currentBlocks = parseShortcutText(shortcutRawText);
+
+      if (dataReady) {
+        // JSON読み込み済み → 即レンダリング
+        document.getElementById('dataLoadingMsg').style.display = 'none';
+        renderConfirmCards(currentBlocks);
+      } else {
+        // JSON未完了 → ローディング表示して待機（loadDataFiles完了時に自動レンダリング）
+        document.getElementById('dataLoadingMsg').style.display = 'block';
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  /* ============================================================
+     照合カード描画
+  ============================================================ */
+  const GOD_COLORS = {
+    ディアロス: '#F3BA88', セクレド: '#78DEC1', キルケン: '#E5B1FA',
+    ニヒルム: '#86CDF4', ヴィトル: '#AB9180', '@?#$': '#6020E0', 通常ヒラメキ: '#fbbf24',
+  };
+
+  function applyGodStyle(el, godName) {
+    const color = GOD_COLORS[godName] || '#888888';
+    el.style.borderColor = color;
+    el.style.color = color;
+  }
+
+  function renderConfirmCards(blocks, preserveItems) {
+    if (!preserveItems) {
+      confirmItems = results.map((_, idx) => ({
+        resultIdx: idx, excluded: false,
+        charName: null, cardKey: null, hiramekiNum: null,
+        kakureEffect: null, shinEffect: null, matchScore: 0,
+        sharedCardName: null
+      }));
+    }
+
+    const container = document.getElementById('confirmCards');
+    container.innerHTML = '';
+
+    confirmItems.forEach((item, pos) => {
+      const r = results[item.resultIdx];
+      const block = blocks[r.index];
+      const ocrEffect = block ? block.effectLines.join('\n') : '';
+
+      // OCRテキストから種別を抽出
+      const ocrKindRaw = block ? block.nameLines.find(l => ['攻撃','スキル','強化'].includes(l.trim())) : null;
+      const ocrKind = ocrKindRaw ? ocrKindRaw.trim() : null;
+
+      // 照合実行
+      const matches = matchHirameki(ocrEffect, ocrKind);
+      const top = matches[0] || null;
+
+      // 神様（auto-selectionより前に定義）
+      const godName  = r.winner;
+      const godColor = GOD_COLORS[godName] || '#888';
+      const hasGod   = godName !== '通常ヒラメキ';
+
+      // 初回のみ自動選択
+      if (!preserveItems && top) {
+        item.charName    = top.charName;
+        item.cardKey     = top.cardKey;
+        item.hiramekiNum = top.hiramekiNum;
+        item.matchScore  = top.score;
+        // 共用版：照合結果のカード名をsharedCardNameに自動反映
+        if (cardMode === 'shared' && !item.sharedCardName) {
+          item.sharedCardName = top.cardKey;
+        }
+
+        // 余り効果を照合（神ヒラメキ・隠れヒラメキの自動候補）
+        const baseNorm = normalizeOCR(top.effect);
+        const ocrNorm  = normalizeOCR(ocrEffect);
+        // ベース効果を除いた残りテキストを生成
+        const remainder = ocrNorm.replace(baseNorm, '').trim();
+        if (remainder.length > 1) {
+          let bestKey = null, bestScore = 0;
+          for (const [key, val] of Object.entries(hiramekiEffects)) {
+            const s = similarity(remainder, normalizeOCR(val));
+            if (s > bestScore) { bestScore = s; bestKey = key; }
+          }
+          if (bestKey && bestScore > 0.2) {
+            if (top.isX6) {
+              item.kakureEffect = bestKey;
+            } else if (hasGod) {
+              item.shinEffect = bestKey;
+            } else if (cardMode === 'shared') {
+              // 共用版の通常ヒラメキ（神なし）
+              item.kakureEffect = bestKey;
+            }
+          }
+        }
+      }
+
+      // コスト情報
+      const digitEl   = document.getElementById(`costDigit-${item.resultIdx}`);
+      const colorEl   = document.getElementById(`costColor-${item.resultIdx}`);
+      const costDigit = (digitEl && digitEl.value) ? digitEl.value : '?';
+      const costColor = (colorEl && colorEl.value) ? colorEl.value : '?';
+
+      // 現在選択中のカード情報
+      const selCharData = characterData[item.charName];
+      const selCard     = selCharData ? selCharData.cards[item.cardKey] : null;
+      const selHirameki = selCard ? selCard.hirameki[String(item.hiramekiNum)] : null;
+      const isX6        = item.hiramekiNum === 6;
+
+      // 整形済みテキスト
+      let formattedText = '';
+      if (cardMode === 'shared') {
+        const block = currentBlocks[r.index];
+        const sharedCardName = item.sharedCardName || (block && block.nameLines[0]) || '（未取得）';
+        // sharedDataからbaseEffectを取得
+        let sharedBaseEffect = '';
+        for (const fileData of Object.values(sharedData)) {
+          const c = (fileData.cards || {})[sharedCardName] || (fileData.arenaCards || {})[sharedCardName];
+          if (c) { sharedBaseEffect = c.baseEffect; break; }
+        }
+        const lines = [`カード: ${sharedCardName}`];
+        if (sharedBaseEffect) lines.push(sharedBaseEffect);
+        if (item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push(`通常ヒラメキ: ${item.kakureEffect} / ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
+        }
+        if (hasGod && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('');
+          lines.push(`[神] ${hiramekiEffects[item.shinEffect] || item.shinEffect}`);
+        }
+        formattedText = lines.join('\n');
+      } else if (selCard && selHirameki) {
+        const hiramekiKind = selHirameki.kind || selCard.kind;
+        const lines = [
+          `${item.charName} / ${item.cardKey} / ${selCard.name}`,
+          `コスト${selHirameki.cost} / ${hiramekiKind} / ${item.cardKey}-${item.hiramekiNum}`,
+          '',
+          selHirameki.effect,
+        ];
+        if (isX6 && item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push('');
+          lines.push(`[隠れ] ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
+        }
+        if (hasGod && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('');
+          lines.push(`[神] ${hiramekiEffects[item.shinEffect] || item.shinEffect}`);
+        }
+        formattedText = lines.join('\n');
+      } else if (selCard && isX6) {
+        const lines = [
+          `${item.charName} / ${item.cardKey} / ${selCard.name}`,
+          `コスト${selCard.cost} / ${selCard.kind} / ${item.cardKey}-6（隠れヒラメキ）`,
+          '',
+          selCard.baseEffect,
+        ];
+        if (item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push('');
+          lines.push(`[隠れ] ${hiramekiEffects[item.kakureEffect] || item.kakureEffect}`);
+        }
+        if (hasGod && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('');
+          lines.push(`[神] ${hiramekiEffects[item.shinEffect] || item.shinEffect}`);
+        }
+        formattedText = lines.join('\n');
+      } else {
+        formattedText = '（照合結果なし）\n\n' + ocrEffect;
+      }
+
+      // 適合率スコア
+      const score = Math.round((item.matchScore || 0) * 100);
+      const scoreClass = score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
+
+      // ── カード全体 ──
+      const card = document.createElement('div');
+      card.className = 'match-card' + (item.excluded ? ' excluded' : '');
+
+      // ヘッダー
+      const header = document.createElement('div');
+      header.className = 'match-card-header';
+      header.innerHTML = `
+        <span class="match-score ${scoreClass}">適合率 ${score}%</span>
+        <span class="match-num">#${pos + 1}</span>
+      `;
+      card.appendChild(header);
+
+      // 画像＋テキスト
+      const body = document.createElement('div');
+      body.className = 'match-body';
+
+      // 画像セル（カード全面）
+      const imgCell = document.createElement('div');
+      imgCell.className = 'match-image-cell';
+      const srcCanvas = r.nameCanvas || r.canvas;
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width  = srcCanvas.width;
+      previewCanvas.height = srcCanvas.height;
+      previewCanvas.style.cssText = 'width:100%;height:auto;border-radius:4px;border:1px solid #444;background:#000;image-rendering:pixelated;cursor:pointer;max-width:130px;';
+      previewCanvas.getContext('2d').drawImage(srcCanvas, 0, 0);
+      previewCanvas.onclick = () => showModal(srcCanvas);
+      imgCell.appendChild(previewCanvas);
+
+      // テキストセル
+      const textCell = document.createElement('div');
+      textCell.className = 'match-text-cell';
+
+      // 神様表示（色付き）
+      const godSpan = document.createElement('div');
+      godSpan.style.cssText = `font-size:11px;font-weight:700;color:${godColor};margin-bottom:4px;`;
+      godSpan.textContent = hasGod ? `【${godName}】` : '🟡 通常ヒラメキ';
+      textCell.appendChild(godSpan);
+
+      // コスト表示
+      const costColorHex = costColor === '赤_up' ? '#f87171' : costColor === '緑_down' ? '#34d399' : '#7eb8d4';
+      const costSpan = document.createElement('div');
+      costSpan.style.cssText = `font-size:10px;color:${costColorHex};margin-bottom:6px;font-family:'Rajdhani',sans-serif;font-weight:700;`;
+      costSpan.textContent = `コスト ${costDigit} / ${costColor.split('_')[0]}`;
+      textCell.appendChild(costSpan);
+
+      // 整形済みテキスト
+      const textPre = document.createElement('div');
+      textPre.style.cssText = 'font-size:10px;color:#ccc;white-space:pre-wrap;word-break:break-all;';
+      textPre.textContent = formattedText;
+      textCell.appendChild(textPre);
+
+      body.appendChild(imgCell);
+      body.appendChild(textCell);
+      card.appendChild(body);
+
+      // ── ドロップダウン群 ──
+      const selects = document.createElement('div');
+      selects.className = 'match-selects';
+
+      // ヘルパー：select行を作る（キャラ版・共用版共通）
+
+      // ── ヒラメキ選択パネル ──
+      let _hpanelCallback = null;
+      let _hpanelCurrent  = null;
+
+      function hpanelOpen(titleText, sections, currentVal, onSelect) {
+        _hpanelCallback = onSelect;
+        _hpanelCurrent  = currentVal;
+        document.getElementById('hpanelTitle').textContent = titleText;
+        document.getElementById('hpanelSearch').value = '';
+        _hpanelRender(sections, '');
+        document.getElementById('hpanelOverlay').classList.add('open');
+        document.getElementById('hpanelSearch').focus();
+        // オーバーレイクリックで閉じる
+        document.getElementById('hpanelOverlay').onclick = e => {
+          if (e.target === document.getElementById('hpanelOverlay')) hpanelClose();
+        };
+        // 検索欄
+        document.getElementById('hpanelSearch').oninput = function() {
+          _hpanelRender(sections, this.value.trim());
+        };
+      }
+
+      function hpanelClose() {
+        document.getElementById('hpanelOverlay').classList.remove('open');
+      }
+
+      function _hpanelEscRE(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+      function _hpanelRender(sections, query) {
+        const body = document.getElementById('hpanelBody');
+        let html = '';
+
+        // クリア行
+        html += `<div class="hpanel-clear" onclick="_hpanelSelect(null)">− 選択を解除</div>`;
+
+        if (query) {
+          const q = query.toLowerCase();
+          let count = 0;
+          for (const sec of sections) {
+            for (const grp of (sec.groups || [])) {
+              for (const [id, text] of Object.entries(grp.entries || {})) {
+                if (text.toLowerCase().includes(q)) {
+                  const hi = text.replace(new RegExp('(' + _hpanelEscRE(query) + ')', 'gi'), '<mark>$1</mark>');
+                  const sel = id === _hpanelCurrent ? ' selected' : '';
+                  html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${hi}</div>`;
+                  count++;
+                }
+              }
+            }
+          }
+          if (!count) html += '<div class="hpanel-noresult">該当なし</div>';
+        } else {
+          for (const sec of sections) {
+            const total = (sec.groups || []).reduce((n, g) => n + Object.keys(g.entries || {}).length, 0);
+            html += `<div class="hpanel-section open" id="hpsec-${sec.id}">`;
+            html += `<div class="hpanel-sec-hd" onclick="this.closest('.hpanel-section').classList.toggle('open')">`;
+            html += `<span class="hpanel-sec-name">${sec.id} ${sec.name}</span>`;
+            html += `<div class="hpanel-sec-meta"><span class="hpanel-sec-count">${total}件</span><span class="hpanel-sec-chev">▼</span></div>`;
+            html += `</div><div class="hpanel-sec-body">`;
+            for (const grp of (sec.groups || [])) {
+              html += `<div class="hpanel-grp-label">${grp.name}</div>`;
+              for (const [id, text] of Object.entries(grp.entries || {})) {
+                const sel = id === _hpanelCurrent ? ' selected' : '';
+                html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${text}</div>`;
+              }
+            }
+            html += `</div></div>`;
+          }
+        }
+        body.innerHTML = html;
+      }
+
+      function _hpanelSelect(id) {
+        hpanelClose();
+        if (_hpanelCallback) _hpanelCallback(id);
+      }
+
+      function makeHpanelTrigger(label, sections, currentVal, disabled, onChange) {
+        const row = document.createElement('div');
+        row.className = 'match-select-row';
+        const lbl = document.createElement('div');
+        lbl.className = 'match-select-label';
+        lbl.textContent = label;
+        const btn = document.createElement('button');
+        btn.className = 'hpanel-trigger' + (disabled ? ' disabled' : '');
+        const valSpan = document.createElement('span');
+        valSpan.className = 'hpanel-val';
+        valSpan.textContent = currentVal || '－';
+        const arr = document.createElement('span');
+        arr.className = 'hpanel-arr';
+        arr.textContent = '▼';
+        btn.appendChild(valSpan);
+        btn.appendChild(arr);
+        if (!disabled) {
+          btn.onclick = () => {
+            hpanelOpen(label, sections, _hpanelCurrent, id => {
+              const text = id ? _hpanelFindText(sections, id) : '－';
+              valSpan.textContent = text;
+              onChange(id);
+            });
+            // 現在値を設定
+            _hpanelCurrent = currentVal;
+          };
+        }
+        row.appendChild(lbl);
+        row.appendChild(btn);
+        return { row, btn, valSpan };
+      }
+
+      function _hpanelFindText(sections, id) {
+        for (const sec of sections) {
+          for (const grp of (sec.groups || [])) {
+            if (grp.entries && grp.entries[id]) return grp.entries[id];
+          }
+        }
+        return id;
+      }
+
+      function makeSelectRow(label, options, selectedVal, disabled, onChange) {
+        const row = document.createElement('div');
+        row.className = 'match-select-row';
+        const lbl = document.createElement('div');
+        lbl.className = 'match-select-label';
+        lbl.textContent = label;
+        const sel = document.createElement('select');
+        sel.className = 'match-select';
+        sel.disabled = disabled;
+        options.forEach(([val, text]) => {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = text;
+          if (val === selectedVal) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        if (!disabled) sel.addEventListener('change', () => onChange(sel.value));
+        row.appendChild(lbl);
+        row.appendChild(sel);
+        return { row, sel };
+      }
+
+      if (cardMode === 'shared') {
+        // ── 共用カード版 ──
+
+        // カード名（共用JSONから全カード名リストを生成してドロップダウン表示）
+        const allSharedCards = [];
+        for (const [fileName, fileData] of Object.entries(sharedData)) {
+          for (const cardName of Object.keys(fileData.cards || {})) {
+            allSharedCards.push(cardName);
+          }
+          for (const cardName of Object.keys(fileData.arenaCards || {})) {
+            allSharedCards.push(cardName);
+          }
+        }
+        const block = currentBlocks[r.index];
+        const autoName = block && block.nameLines[0] ? block.nameLines[0] : '';
+        const nameOptions = [['', '（未特定）'], ...allSharedCards.map(n => [n, n])];
+        const { row: nameRow } = makeSelectRow(
+          '⬜ カード名', nameOptions, item.sharedCardName || autoName,
+          false,
+          val => { item.sharedCardName = val || null; renderConfirmCards(currentBlocks, true); }
+        );
+        selects.appendChild(nameRow);
+
+        // 通常ヒラメキ（パネル選択）
+        const { row: effectRow } = makeHpanelTrigger(
+          '⬜ 通常ヒラメキ', hiramekiShinSections,
+          item.kakureEffect || null, false,
+          id => { item.kakureEffect = id || null; renderConfirmCards(currentBlocks, true); }
+        );
+        selects.appendChild(effectRow);
+
+        // 神ヒラメキ（パネル選択）
+        const { row: shinRow } = makeHpanelTrigger(
+          '⬜ 神ヒラメキ', hiramekiShinSections,
+          hasGod ? (item.shinEffect || null) : null, !hasGod,
+          id => { item.shinEffect = id || null; renderConfirmCards(currentBlocks, true); }
+        );
+        selects.appendChild(shinRow);
+
+      } else {
+        // ── キャラ版 ──
+
+      // キャラクター選択
+      const charOptions = [['', '（未特定）'], ...Object.keys(characterData).map(n => [n, n])];
+      const { row: charRow, sel: charSel } = makeSelectRow(
+        '⬜ キャラ', charOptions, item.charName || '',
+        Object.keys(characterData).length === 0,
+        val => {
+          item.charName = val || null;
+          item.cardKey = null; item.hiramekiNum = null;
+          renderConfirmCards(currentBlocks, true);
+        }
+      );
+      selects.appendChild(charRow);
+
+      // カード選択
+      const cardOptions = [['', '（未特定）']];
+      if (selCharData) {
+        Object.entries(selCharData.cards).forEach(([key, c]) => {
+          cardOptions.push([key, `${key} / ${c.name}`]);
+        });
+      }
+      const { row: cardRow, sel: cardSel } = makeSelectRow(
+        '⬜ カード', cardOptions, item.cardKey || '',
+        !selCharData,
+        val => {
+          item.cardKey = val || null; item.hiramekiNum = null;
+          renderConfirmCards(currentBlocks, true);
+        }
+      );
+      selects.appendChild(cardRow);
+
+      // X番号選択
+      const xOptions = [['', '（未特定）']];
+      if (selCard) {
+        for (let n = 1; n <= 5; n++) {
+          if (selCard.hirameki[String(n)]) xOptions.push([String(n), `${item.cardKey}-${n}`]);
+        }
+        xOptions.push(['6', `${item.cardKey}-6（隠れヒラメキ）`]);
+      }
+      const { row: xRow, sel: xSel } = makeSelectRow(
+        '⬜ ヒラメキ', xOptions, item.hiramekiNum ? String(item.hiramekiNum) : '',
+        !selCard,
+        val => {
+          item.hiramekiNum = val ? parseInt(val) : null;
+          renderConfirmCards(currentBlocks, true);
+        }
+      );
+      selects.appendChild(xRow);
+
+      // 隠れヒラメキ選択（X-6の時のみ有効・パネル）
+      const showKakure = isX6;
+      const { row: kakureRow } = makeHpanelTrigger(
+        '⬜ 隠れヒラメキ', hiramekiKakureSections,
+        showKakure ? (item.kakureEffect || null) : null, !showKakure,
+        id => { item.kakureEffect = id || null; }
+      );
+      selects.appendChild(kakureRow);
+
+      // 神ヒラメキ選択（神様ありの時のみ有効・パネル）
+      const { row: shinRow } = makeHpanelTrigger(
+        '⬜ 神ヒラメキ', hiramekiShinSections,
+        hasGod ? (item.shinEffect || null) : null, !hasGod,
+        id => { item.shinEffect = id || null; }
+      );
+      selects.appendChild(shinRow);
+
+      } // end キャラ版 else
+
+      card.appendChild(selects);
+
+      // OCR生データ（折りたたみ）
+      const ocrToggle = document.createElement('div');
+      ocrToggle.className = 'match-ocr-toggle';
+      ocrToggle.textContent = '▶ OCR生データ（タップで展開）';
+      const ocrContent = document.createElement('div');
+      ocrContent.className = 'match-ocr-content';
+      ocrContent.textContent = ocrEffect || '（テキストなし）';
+      ocrToggle.onclick = () => {
+        const open = ocrContent.style.display === 'block';
+        ocrContent.style.display = open ? 'none' : 'block';
+        ocrToggle.textContent = (open ? '▶' : '▼') + ' OCR生データ（タップで展開）';
+      };
+      card.appendChild(ocrToggle);
+      card.appendChild(ocrContent);
+
+      // フッター（順番・除外）
+      const footer = document.createElement('div');
+      footer.className = 'match-footer';
+
+      const orderBtns = document.createElement('div');
+      orderBtns.className = 'match-order-btns';
+      const btnUp = document.createElement('button');
+      btnUp.className = 'match-order-btn';
+      btnUp.textContent = '▲';
+      btnUp.disabled = pos === 0;
+      btnUp.onclick = () => {
+        [confirmItems[pos], confirmItems[pos-1]] = [confirmItems[pos-1], confirmItems[pos]];
+        renderConfirmCards(currentBlocks, true);
+      };
+      const btnDown = document.createElement('button');
+      btnDown.className = 'match-order-btn';
+      btnDown.textContent = '▼';
+      btnDown.disabled = pos === confirmItems.length - 1;
+      btnDown.onclick = () => {
+        [confirmItems[pos], confirmItems[pos+1]] = [confirmItems[pos+1], confirmItems[pos]];
+        renderConfirmCards(currentBlocks, true);
+      };
+      orderBtns.appendChild(btnUp);
+      orderBtns.appendChild(btnDown);
+
+      const btnExclude = document.createElement('button');
+      btnExclude.className = 'match-exclude-btn' + (item.excluded ? ' active' : '');
+      btnExclude.textContent = item.excluded ? '✕ 除外中' : '－ 除外';
+      btnExclude.onclick = () => {
+        item.excluded = !item.excluded;
+        renderConfirmCards(currentBlocks, true);
+      };
+
+      footer.appendChild(orderBtns);
+      footer.appendChild(btnExclude);
+      card.appendChild(footer);
+
+      container.appendChild(card);
+    });
+
+    document.getElementById('confirmTableArea').style.display = 'block';
+  }
+
+  /* ============================================================
+     テキスト合成
+  ============================================================ */
+  function parseShortcutText(raw) {
+    // 「===next===」を区切りとしてブロック分割
+    const blocks = {};
+    const parts = raw.split(/===next===/);
+    parts.forEach(part => {
+      const lines = part.split('\n').map(l => l.trim()).filter(l => l);
+      if (!lines.length) return;
+
+      // 「#N.」から番号を取得
+      const numMatch = lines[0].match(/^#(\d+)\./);
+      if (!numMatch) return;
+      const num = parseInt(numMatch[1]);
+
+      // ##==カード名・種別== と ##==カード効果・ヒラメキ== でセクション分割
+      const nameIdx   = lines.findIndex(l => l.includes('カード名・種別'));
+      const effectIdx = lines.findIndex(l => l.includes('カード効果・ヒラメキ'));
+
+      const nameLines   = (nameIdx   >= 0 && effectIdx > nameIdx)   ? lines.slice(nameIdx + 1,   effectIdx) : [];
+      const effectLines = (effectIdx >= 0)                           ? lines.slice(effectIdx + 1)            : [];
+
+      blocks[num] = { nameLines, effectLines };
+    });
+    return blocks;
+  }
+
+  function isNoiseChar(ch) {
+    // ひらがな・カタカナ・漢字・英数字・一般的な記号以外 = ノイズ文字
+    return !/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3000-\u303F\uFF00-\uFFEFa-zA-Z0-9（）「」【】［］\[\]()、。・＋\-!！?？0-9０-９]/.test(ch);
+  }
+
+  function extractGodEffect(lines) {
+    if (!lines.length) return { mainLines: lines, godEffect: null };
+    const last = lines[lines.length - 1];
+    if (last && last.length > 1 && isNoiseChar(last[0])) {
+      return {
+        mainLines: lines.slice(0, -1),
+        godEffect: last.slice(1).trim()
+      };
+    }
+    return { mainLines: lines, godEffect: null };
+  }
+
+  function mergeData() {
+    if (!shortcutRawText.trim()) { alert('テキストファイルを先にアップロードしてね！'); return; }
+    const lines = [];
+    const activeItems = confirmItems.filter(item => !item.excluded);
+
+    activeItems.forEach((item, outputIdx) => {
+      const r = results[item.resultIdx];
+      const godName = r.winner === '通常ヒラメキ' ? '通常ヒラメキ' : r.winner;
+
+      // コスト
+      const digitEl = document.getElementById(`costDigit-${item.resultIdx}`);
+      const colorEl = document.getElementById(`costColor-${item.resultIdx}`);
+      const costDigitVal = (digitEl && digitEl.value) ? digitEl.value : '?';
+      const costColorVal = (colorEl && colorEl.value) ? colorEl.value : '?';
+
+      // JSON照合結果
+      const selCharData = characterData[item.charName];
+      const selCard     = selCharData ? selCharData.cards[item.cardKey] : null;
+      const isX6        = item.hiramekiNum === 6;
+      const selHirameki = selCard && !isX6 ? selCard.hirameki[String(item.hiramekiNum)] : null;
+
+      lines.push(`#${outputIdx + 1}.`);
+      lines.push('##==神の名前==');
+      lines.push(`【${godName}】`);
+      lines.push('##==コスト==');
+      lines.push(`${costDigitVal}/${costColorVal}`);
+
+      if (selCard) {
+        lines.push('##==キャラクター==');
+        lines.push(item.charName);
+        lines.push('##==カード==');
+        lines.push(`${item.cardKey} / ${selCard.name} / コスト${isX6 ? selCard.cost : selHirameki?.cost ?? '?'} / ${selCard.kind} / ${item.cardKey}-${item.hiramekiNum}`);
+        lines.push('##==ヒラメキ効果==');
+        lines.push(isX6 ? selCard.baseEffect : (selHirameki?.effect ?? '（不明）'));
+        if (isX6 && item.kakureEffect && item.kakureEffect !== '－') {
+          lines.push('##==隠れヒラメキ追加効果==');
+          lines.push(hiramekiEffects[item.kakureEffect] || item.kakureEffect);
+        }
+        if (godName !== '通常ヒラメキ' && item.shinEffect && item.shinEffect !== '－') {
+          lines.push('##==神ヒラメキ追加効果==');
+          lines.push(hiramekiEffects[item.shinEffect] || item.shinEffect);
+        }
+      } else {
+        // 照合なし：OCRテキストをそのまま出力
+        const block = currentBlocks[r.index];
+        if (block) {
+          lines.push('##==カード名・種別==');
+          block.nameLines.forEach(l => lines.push(l));
+          lines.push('##==カード効果・ヒラメキ==');
+          const { mainLines, godEffect } = extractGodEffect(block.effectLines);
+          mainLines.forEach(l => lines.push(l));
+          if (godEffect) lines.push(`→ ${godEffect}`);
+        }
+      }
+
+      lines.push('===next===');
+    });
+
+    const merged = lines.join('\n');
+    document.getElementById('mergePreview').textContent = merged;
+    document.getElementById('mergeResult').style.display = 'block';
+    document.getElementById('mergeResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function copyMerged() {
+    const text = document.getElementById('mergePreview').textContent;
+    writeToClipboard(text, 'mergeCopyBtn', '📋 コピー');
+  }
+
+  function saveMerged() {
+    const text = document.getElementById('mergePreview').textContent;
+    downloadText(text, '合成結果.txt');
+  }
+
+  /* ============================================================
+     共通ユーティリティ
+  ============================================================ */
+  function writeToClipboard(text, btnId, defaultLabel) {
+    navigator.clipboard.writeText(text).then(() => {
+      flashBtn(btnId, '✅ コピーしました！', defaultLabel);
+    }).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      flashBtn(btnId, '✅ コピーしました！', defaultLabel);
+    });
+  }
+
+  function flashBtn(btnId, msg, defaultLabel) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.textContent = msg;
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = defaultLabel;
+      btn.classList.remove('copied');
+    }, 2000);
+  }
+
+  function downloadText(text, filename) {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    // iOS Safari対応：Web Share APIを優先
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], filename, { type: 'text/plain' });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: filename })
+          .catch(e => { if (e.name !== 'AbortError') fallbackDownload(blob, filename); });
+        return;
+      }
+    }
+    fallbackDownload(blob, filename);
+  }
+
+  function fallbackDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /* ============================================================
+     リセット
+  ============================================================ */
+  function resetTool() {
+    results = [];
+    confirmItems = [];
+    currentBlocks = {};
+    shortcutRawText = '';
+    document.getElementById('fileInput').value = '';
+    document.getElementById('shortcutFile').value = '';
+    document.getElementById('resultSection').style.display  = 'none';
+    document.getElementById('costSection').style.display    = 'none';
+    document.getElementById('mergeSection').style.display   = 'none';
+    document.getElementById('resetSection').style.display   = 'none';
+    document.getElementById('mergeResult').style.display    = 'none';
+    document.getElementById('shortcutLoaded').style.display = 'none';
+    document.getElementById('confirmTableArea').style.display = 'none';
+    document.getElementById('confirmCards').innerHTML = '';
+    document.getElementById('resultList').innerHTML = '';
+    document.getElementById('costList').innerHTML = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ============================================================
+     拡大モーダル
+  ============================================================ */
+  function showModal(srcCanvas) {
+    const zoom = document.getElementById('zoomCanvas');
+    zoom.width  = srcCanvas.width;
+    zoom.height = srcCanvas.height;
+    zoom.getContext('2d').drawImage(srcCanvas, 0, 0);
+    document.getElementById('modalOverlay').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('show');
+  }
+
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+</script>
+
+
+<!-- ヒラメキ選択パネル -->
+<div class="hpanel-overlay" id="hpanelOverlay">
+  <div class="hpanel-panel">
+    <div class="hpanel-head">
+      <div class="hpanel-title-row">
+        <span class="hpanel-title" id="hpanelTitle">効果を選択</span>
+        <button class="hpanel-close" onclick="hpanelClose()">✕</button>
+      </div>
+      <div class="hpanel-search-wrap">
+        <span class="hpanel-search-icon">🔍</span>
+        <input class="hpanel-search" id="hpanelSearch" type="text"
+          placeholder="効果名で絞り込み…"
+          oninput="hpanelSearch(this.value)">
+      </div>
+    </div>
+    <div class="hpanel-body" id="hpanelBody"></div>
+  </div>
+</div>
+</body>
+</html>
