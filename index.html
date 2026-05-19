@@ -14,7 +14,7 @@
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.25</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.26</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -35,6 +35,14 @@
   </div>
   <p class="upload-hint">※ショートカットと同じ順番で選択してね（20枚以下推奨）</p>
 </div>
+
+<!-- 常時表示デバッグパネル（STEP2で止まる問題の診断用） -->
+
+<div id="debugPanelGlobal" style="display:none;margin-bottom:8px;padding:10px;background:#1a1a2e;border:1px solid #ff5555;border-radius:8px;font-size:11px;color:#e0e0e0;white-space:pre-wrap;word-break:break-all;"></div>
+<button onclick="var p=document.getElementById('debugPanelGlobal'); p.style.display=p.style.display==='none'?'block':'none';"
+  style="width:100%;margin-bottom:12px;padding:6px 14px;background:#2a1a1a;border:1px solid #ff5555;border-radius:8px;color:#ff5555;font-size:11px;cursor:pointer;">
+  🔍 デバッグ情報（常時表示）
+</button>
 
 <!-- STEP 2: 識別結果 -->
 
@@ -130,20 +138,25 @@
    * data.jsのdebugLog()がロードされる前でも動くよう直接DOMを操作する。
    * 更新: 2026-05-20 00:04
    */
+  // エラーを両方のデバッグパネルに赤字で出力する
+  // debugPanelGlobal: 常時表示（STEP2で止まる問題の診断用）
+  // debugPanel: STEP4内（JSON照合確認用）
+  // 更新: 2026-05-20 00:04
+  function _writeErrorToPanel(msg) {
+    ['debugPanelGlobal', 'debugPanel'].forEach(id => {
+      const panel = document.getElementById(id);
+      if (panel) {
+        panel.style.display = 'block';
+        panel.innerHTML += `<span style="color:#ff5555">${msg}</span>\n`;
+      }
+    });
+  }
   window.onerror = function(msg, src, line, col, err) {
-    const panel = document.getElementById('debugPanel');
-    if (panel) {
-      panel.style.display = 'block';
-      panel.innerHTML += `<span style="color:#ff5555">❌ JSエラー: ${msg}\n  場所: ${src} ${line}:${col}</span>\n`;
-    }
+    _writeErrorToPanel(`❌ JSエラー: ${msg}\n  場所: ${src} ${line}:${col}`);
     console.error('onerror:', msg, src, line, col, err);
   };
   window.addEventListener('unhandledrejection', function(e) {
-    const panel = document.getElementById('debugPanel');
-    if (panel) {
-      panel.style.display = 'block';
-      panel.innerHTML += `<span style="color:#ff5555">❌ 非同期エラー: ${e.reason}</span>\n`;
-    }
+    _writeErrorToPanel(`❌ 非同期エラー: ${e.reason}`);
     console.error('unhandledrejection:', e.reason);
   });
 
