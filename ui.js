@@ -2,12 +2,14 @@
  * ui.js
  * 役割: 各STEPのUI描画とヒラメキ選択パネルの制御
  * 依存: data.js（hiramekiShinSections・hiramekiKakureSections・hiramekiEffectsを参照）
- *       app.js側の変数（cardMode・characterData・sharedData・confirmItems・currentBlocksを参照）
+ *       index.htmlのwindowグローバル変数（results・confirmItems・currentBlocks・
+ *       cardMode・dataReady・patternModeを参照。letではなくwindow宣言が必要な理由は
+ *       index.html内のコメントを参照）
  * 被依存: app.js（render系関数・パネル関数を呼び出す）
  *
  * 注意: hpanelOpen/hpanelClose/_hpanelSelectはグローバルスコープに定義されているため
  *       HTML内のonclick属性から直接呼び出し可能
- * 更新: 2026-05-19 18:25
+ * 更新: 2026-05-19 18:59
  */
 
 function renderCostList() {
