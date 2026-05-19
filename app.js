@@ -1,0 +1,564 @@
+/*
+ * app.js
+ * 役割: ユーザー操作のエントリーポイントと全体フロー制御
+ * 依存: cost.js（cropCostCanvas・detectCostColor・matchCostDigitTemplate・detectCostDigitを使用）
+ *       data.js（loadDataFiles・matchHirameki・normalizeOCRを使用）
+ *       ui.js（renderResultList・renderCostList・renderConfirmCards・makeHpanelTrigger等を使用）
+ *       index.htmlのwindowグローバル変数（results・confirmItems・currentBlocks・cardMode・dataReady）
+ * 被依存: なし（最終段）
+ *
+ * 【重要】index.htmlの<script>タグ内に関数があるとブロックスコープに閉じてしまい、
+ * ui.js等の外部JSから参照できない。全関数をこのファイルに移してグローバルスコープに出している。
+ * 更新: 2026-05-20 00:04
+ */
+
+function setCardMode(mode) {
+  cardMode = mode;
+  const charBtn   = document.getElementById('toggleCharBtn');
+  const sharedBtn = document.getElementById('toggleSharedBtn');
+  if (mode === 'character') {
+    charBtn.style.borderColor   = '#78DEC1';
+    charBtn.style.background    = 'rgba(120,222,193,0.15)';
+    charBtn.style.color         = '#78DEC1';
+    sharedBtn.style.borderColor = '#444';
+    sharedBtn.style.background  = 'transparent';
+    sharedBtn.style.color       = '#666';
+  } else {
+    sharedBtn.style.borderColor = '#fbbf24';
+    sharedBtn.style.background  = 'rgba(251,191,36,0.15)';
+    sharedBtn.style.color       = '#fbbf24';
+    charBtn.style.borderColor   = '#444';
+    charBtn.style.background    = 'transparent';
+    charBtn.style.color         = '#666';
+  }
+  // モード切替時にテキスト読み込み済みなら再レンダリング
+  if (dataReady && Object.keys(currentBlocks).length > 0) {
+    renderConfirmCards(currentBlocks, false);
+  }
+}
+
+/* ============================================================
+   JSONデータ読み込み
+
+function setPattern(mode) {
+  patternMode = mode;
+  document.getElementById('btnAuto').classList.toggle('active', mode === 'auto');
+  document.getElementById('btnP2').classList.toggle('active',   mode === 'p2');
+  document.getElementById('btnP1').classList.toggle('active',   mode === 'p1');
+} // { canvas, winner, scoreDiff }
+
+/* ============================================================
+   画像読み込み・一括処理
+============================================================ */
+async function handleFiles(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+
+  results = [];
+  const resultSection = document.getElementById('resultSection');
+  const resultList    = document.getElementById('resultList');
+
+  resultSection.style.display = 'block';
+  resultList.innerHTML = `<div class="processing">⏳ ${files.length}枚を処理中...</div>`;
+
+  for (let i = 0; i < files.length; i++) {
+    const result = await processFile(files[i], i + 1);
+    results.push(result);
+  }
+
+  renderResultList();
+  renderCostList();
+  document.getElementById('costSection').style.display = 'block';
+  document.getElementById('mergeSection').style.display = 'block';
+  document.getElementById('resetSection').style.display = 'block';
+  document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function processFile(file, index) {
+  // ファイル読み込み
+  const dataUrl = await new Promise(r => {
+    const reader = new FileReader();
+    reader.onload = ev => r(ev.target.result);
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise(r => {
+    const i = new Image();
+    i.onload = () => r(i);
+    i.src = dataUrl;
+  });
+
+  // パターン判定
+  const pattern = patternMode === 'auto' ? detectPattern(img) : patternMode;
+  const cropKey = pattern === 'p2' ? CROP_P2 : CROP_P1;
+
+  // 神様識別
+  const canvas = cropToCanvas(img, cropKey);
+  const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  const { winner, sorted, scoreDiff } = identifyGod(imageData);
+
+  // コスト識別（p2のみ）
+  let costDigit = null, costTmpl = null, costFeat = null, costColor = null, costCanvas = null;
+  if (pattern === 'p2') {
+    costCanvas = cropCostCanvas(img);
+    const costData = costCanvas.getContext('2d').getImageData(0, 0, 50, 60);
+    costColor = detectCostColor(costData);
+
+    // テンプレマッチング優先 → 失敗時に特徴点検出フォールバック
+    const tmplResult  = matchCostDigitTemplate(costCanvas, costColor);
+    const featResult  = detectCostDigit(costCanvas, costColor);
+    let rawDigit = tmplResult ?? featResult ?? null;
+
+    costDigit = rawDigit;
+    costTmpl  = tmplResult;
+    costFeat  = featResult;
+  }
+
+  // カード名領域クロップ（p2のみ・絶対座標）
+  let nameCanvas = null;
+  if (pattern === 'p2') {
+    nameCanvas = document.createElement('canvas');
+    nameCanvas.width = 300; nameCanvas.height = 480;
+    nameCanvas.getContext('2d').drawImage(img, 530, 140, 300, 480, 0, 0, 300, 480);
+  }
+
+  return { index, canvas, winner, scoreDiff, sorted,
+           costDigit, costTmpl, costFeat, costColor, costCanvas, nameCanvas, isP2: pattern === 'p2' };
+}
+
+// 16:9判定（パターン2）かそれ以外（パターン1）
+function detectPattern(img) {
+  const ratio = img.naturalWidth / img.naturalHeight;
+  return (ratio > 1.6 && ratio < 1.9) ? 'p2' : 'p1';
+}
+
+function cropToCanvas(img, crop) {
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const sx = Math.floor(crop.x1 * W);
+  const sy = Math.floor(crop.y1 * H);
+  const sw = Math.max(1, Math.floor((crop.x2 - crop.x1) * W));
+  const sh = Math.max(1, Math.floor((crop.y2 - crop.y1) * H));
+  const c = document.createElement('canvas');
+  c.width = sw; c.height = sh;
+  c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  return c;
+}
+
+/* ============================================================
+   神様識別（最近傍距離方式）
+============================================================ */
+function identifyGod(imageData) {
+  const pixels = imageData.data;
+  const sums = {}, counts = {};
+  for (const name of GOD_NAMES) { sums[name] = 0; counts[name] = 0; }
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i+3] < 128) continue;
+    const px = [pixels[i], pixels[i+1], pixels[i+2]];
+    for (const [name, colors] of Object.entries(GOD_RGB)) {
+      let minD = Infinity;
+      for (const c of colors) {
+        const d = Math.sqrt((px[0]-c[0])**2 + (px[1]-c[1])**2 + (px[2]-c[2])**2);
+        if (d < minD) minD = d;
+      }
+      sums[name] += minD;
+      counts[name]++;
+    }
+  }
+
+  const avgDists = {};
+  for (const name of GOD_NAMES) {
+    avgDists[name] = counts[name] > 0 ? sums[name] / counts[name] : Infinity;
+  }
+
+  const sorted    = Object.entries(avgDists).sort((a,b) => a[1]-b[1]);
+  const scoreDiff = sorted[1][1] - sorted[0][1];
+  return { winner: sorted[0][0], sorted, scoreDiff };
+}
+
+/* ============================================================
+   結果リスト描画
+============================================================ */
+
+/* ============================================================
+   コスト確認リスト描画（STEP 3）
+
+    if (cardMode === 'shared') {
+      // ── 共用カード版 ──
+
+      // カード名（共用JSONから全カード名リストを生成してドロップダウン表示）
+      const allSharedCards = [];
+      for (const [fileName, fileData] of Object.entries(sharedData)) {
+        for (const cardName of Object.keys(fileData.cards || {})) {
+          allSharedCards.push(cardName);
+        }
+        for (const cardName of Object.keys(fileData.arenaCards || {})) {
+          allSharedCards.push(cardName);
+        }
+      }
+      const block = currentBlocks[r.index];
+      const autoName = block && block.nameLines[0] ? block.nameLines[0] : '';
+      const nameOptions = [['', '（未特定）'], ...allSharedCards.map(n => [n, n])];
+      const { row: nameRow } = makeSelectRow(
+        '⬜ カード名', nameOptions, item.sharedCardName || autoName,
+        false,
+        val => { item.sharedCardName = val || null; renderConfirmCards(currentBlocks, true); }
+      );
+      selects.appendChild(nameRow);
+
+      // 通常ヒラメキ（パネル選択）
+      const { row: effectRow } = makeHpanelTrigger(
+        '⬜ 通常ヒラメキ', hiramekiShinSections,
+        item.kakureEffect || null, false,
+        id => { item.kakureEffect = id || null; renderConfirmCards(currentBlocks, true); }
+      );
+      selects.appendChild(effectRow);
+
+      // 神ヒラメキ（パネル選択）
+      const { row: shinRow } = makeHpanelTrigger(
+        '⬜ 神ヒラメキ', hiramekiShinSections,
+        hasGod ? (item.shinEffect || null) : null, !hasGod,
+        id => { item.shinEffect = id || null; renderConfirmCards(currentBlocks, true); }
+      );
+      selects.appendChild(shinRow);
+
+    } else {
+      // ── キャラ版 ──
+
+    // キャラクター選択
+    const charOptions = [['', '（未特定）'], ...Object.keys(characterData).map(n => [n, n])];
+    const { row: charRow, sel: charSel } = makeSelectRow(
+      '⬜ キャラ', charOptions, item.charName || '',
+      Object.keys(characterData).length === 0,
+      val => {
+        item.charName = val || null;
+        item.cardKey = null; item.hiramekiNum = null;
+        renderConfirmCards(currentBlocks, true);
+      }
+    );
+    selects.appendChild(charRow);
+
+    // カード選択
+    const cardOptions = [['', '（未特定）']];
+    if (selCharData) {
+      Object.entries(selCharData.cards).forEach(([key, c]) => {
+        cardOptions.push([key, `${key} / ${c.name}`]);
+      });
+    }
+    const { row: cardRow, sel: cardSel } = makeSelectRow(
+      '⬜ カード', cardOptions, item.cardKey || '',
+      !selCharData,
+      val => {
+        item.cardKey = val || null; item.hiramekiNum = null;
+        renderConfirmCards(currentBlocks, true);
+      }
+    );
+    selects.appendChild(cardRow);
+
+    // X番号選択
+    const xOptions = [['', '（未特定）']];
+    if (selCard) {
+      for (let n = 1; n <= 5; n++) {
+        if (selCard.hirameki[String(n)]) xOptions.push([String(n), `${item.cardKey}-${n}`]);
+      }
+      xOptions.push(['6', `${item.cardKey}-6（隠れヒラメキ）`]);
+    }
+    const { row: xRow, sel: xSel } = makeSelectRow(
+      '⬜ ヒラメキ', xOptions, item.hiramekiNum ? String(item.hiramekiNum) : '',
+      !selCard,
+      val => {
+        item.hiramekiNum = val ? parseInt(val) : null;
+        renderConfirmCards(currentBlocks, true);
+      }
+    );
+    selects.appendChild(xRow);
+
+    // 隠れヒラメキ選択（X-6の時のみ有効・パネル）
+    const showKakure = isX6;
+    const { row: kakureRow } = makeHpanelTrigger(
+      '⬜ 隠れヒラメキ', hiramekiKakureSections,
+      showKakure ? (item.kakureEffect || null) : null, !showKakure,
+      id => { item.kakureEffect = id || null; }
+    );
+    selects.appendChild(kakureRow);
+
+    // 神ヒラメキ選択（神様ありの時のみ有効・パネル）
+    const { row: shinRow } = makeHpanelTrigger(
+      '⬜ 神ヒラメキ', hiramekiShinSections,
+      hasGod ? (item.shinEffect || null) : null, !hasGod,
+      id => { item.shinEffect = id || null; }
+    );
+    selects.appendChild(shinRow);
+
+    } // end キャラ版 else
+
+    card.appendChild(selects);
+
+    // OCR生データ（折りたたみ）
+    const ocrToggle = document.createElement('div');
+    ocrToggle.className = 'match-ocr-toggle';
+    ocrToggle.textContent = '▶ OCR生データ（タップで展開）';
+    const ocrContent = document.createElement('div');
+    ocrContent.className = 'match-ocr-content';
+    ocrContent.textContent = ocrEffect || '（テキストなし）';
+    ocrToggle.onclick = () => {
+      const open = ocrContent.style.display === 'block';
+      ocrContent.style.display = open ? 'none' : 'block';
+      ocrToggle.textContent = (open ? '▶' : '▼') + ' OCR生データ（タップで展開）';
+    };
+    card.appendChild(ocrToggle);
+    card.appendChild(ocrContent);
+
+    // フッター（順番・除外）
+    const footer = document.createElement('div');
+    footer.className = 'match-footer';
+
+    const orderBtns = document.createElement('div');
+    orderBtns.className = 'match-order-btns';
+    const btnUp = document.createElement('button');
+    btnUp.className = 'match-order-btn';
+    btnUp.textContent = '▲';
+    btnUp.disabled = pos === 0;
+    btnUp.onclick = () => {
+      [confirmItems[pos], confirmItems[pos-1]] = [confirmItems[pos-1], confirmItems[pos]];
+      renderConfirmCards(currentBlocks, true);
+    };
+    const btnDown = document.createElement('button');
+    btnDown.className = 'match-order-btn';
+    btnDown.textContent = '▼';
+    btnDown.disabled = pos === confirmItems.length - 1;
+    btnDown.onclick = () => {
+      [confirmItems[pos], confirmItems[pos+1]] = [confirmItems[pos+1], confirmItems[pos]];
+      renderConfirmCards(currentBlocks, true);
+    };
+    orderBtns.appendChild(btnUp);
+    orderBtns.appendChild(btnDown);
+
+    const btnExclude = document.createElement('button');
+    btnExclude.className = 'match-exclude-btn' + (item.excluded ? ' active' : '');
+    btnExclude.textContent = item.excluded ? '✕ 除外中' : '－ 除外';
+    btnExclude.onclick = () => {
+      item.excluded = !item.excluded;
+      renderConfirmCards(currentBlocks, true);
+    };
+
+    footer.appendChild(orderBtns);
+    footer.appendChild(btnExclude);
+    card.appendChild(footer);
+
+    container.appendChild(card);
+  });
+
+  document.getElementById('confirmTableArea').style.display = 'block';
+}
+
+/* ============================================================
+   テキスト合成
+============================================================ */
+function parseShortcutText(raw) {
+  // 「===next===」を区切りとしてブロック分割
+  const blocks = {};
+  const parts = raw.split(/===next===/);
+  parts.forEach(part => {
+    const lines = part.split('\n').map(l => l.trim()).filter(l => l);
+    if (!lines.length) return;
+
+    // 「#N.」から番号を取得
+    const numMatch = lines[0].match(/^#(\d+)\./);
+    if (!numMatch) return;
+    const num = parseInt(numMatch[1]);
+
+    // ##==カード名・種別== と ##==カード効果・ヒラメキ== でセクション分割
+    const nameIdx   = lines.findIndex(l => l.includes('カード名・種別'));
+    const effectIdx = lines.findIndex(l => l.includes('カード効果・ヒラメキ'));
+
+    const nameLines   = (nameIdx   >= 0 && effectIdx > nameIdx)   ? lines.slice(nameIdx + 1,   effectIdx) : [];
+    const effectLines = (effectIdx >= 0)                           ? lines.slice(effectIdx + 1)            : [];
+
+    blocks[num] = { nameLines, effectLines };
+  });
+  return blocks;
+}
+
+function isNoiseChar(ch) {
+  // ひらがな・カタカナ・漢字・英数字・一般的な記号以外 = ノイズ文字
+  return !/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3000-\u303F\uFF00-\uFFEFa-zA-Z0-9（）「」【】［］\[\]()、。・＋\-!！?？0-9０-９]/.test(ch);
+}
+
+function extractGodEffect(lines) {
+  if (!lines.length) return { mainLines: lines, godEffect: null };
+  const last = lines[lines.length - 1];
+  if (last && last.length > 1 && isNoiseChar(last[0])) {
+    return {
+      mainLines: lines.slice(0, -1),
+      godEffect: last.slice(1).trim()
+    };
+  }
+  return { mainLines: lines, godEffect: null };
+}
+
+function mergeData() {
+  if (!shortcutRawText.trim()) { alert('テキストファイルを先にアップロードしてね！'); return; }
+  const lines = [];
+  const activeItems = confirmItems.filter(item => !item.excluded);
+
+  activeItems.forEach((item, outputIdx) => {
+    const r = results[item.resultIdx];
+    const godName = r.winner === '通常ヒラメキ' ? '通常ヒラメキ' : r.winner;
+
+    // コスト
+    const digitEl = document.getElementById(`costDigit-${item.resultIdx}`);
+    const colorEl = document.getElementById(`costColor-${item.resultIdx}`);
+    const costDigitVal = (digitEl && digitEl.value) ? digitEl.value : '?';
+    const costColorVal = (colorEl && colorEl.value) ? colorEl.value : '?';
+
+    // JSON照合結果
+    const selCharData = characterData[item.charName];
+    const selCard     = selCharData ? selCharData.cards[item.cardKey] : null;
+    const isX6        = item.hiramekiNum === 6;
+    const selHirameki = selCard && !isX6 ? selCard.hirameki[String(item.hiramekiNum)] : null;
+
+    lines.push(`#${outputIdx + 1}.`);
+    lines.push('##==神の名前==');
+    lines.push(`【${godName}】`);
+    lines.push('##==コスト==');
+    lines.push(`${costDigitVal}/${costColorVal}`);
+
+    if (selCard) {
+      lines.push('##==キャラクター==');
+      lines.push(item.charName);
+      lines.push('##==カード==');
+      lines.push(`${item.cardKey} / ${selCard.name} / コスト${isX6 ? selCard.cost : selHirameki?.cost ?? '?'} / ${selCard.kind} / ${item.cardKey}-${item.hiramekiNum}`);
+      lines.push('##==ヒラメキ効果==');
+      lines.push(isX6 ? selCard.baseEffect : (selHirameki?.effect ?? '（不明）'));
+      if (isX6 && item.kakureEffect && item.kakureEffect !== '－') {
+        lines.push('##==隠れヒラメキ追加効果==');
+        lines.push(hiramekiEffects[item.kakureEffect] || item.kakureEffect);
+      }
+      if (godName !== '通常ヒラメキ' && item.shinEffect && item.shinEffect !== '－') {
+        lines.push('##==神ヒラメキ追加効果==');
+        lines.push(hiramekiEffects[item.shinEffect] || item.shinEffect);
+      }
+    } else {
+      // 照合なし：OCRテキストをそのまま出力
+      const block = currentBlocks[r.index];
+      if (block) {
+        lines.push('##==カード名・種別==');
+        block.nameLines.forEach(l => lines.push(l));
+        lines.push('##==カード効果・ヒラメキ==');
+        const { mainLines, godEffect } = extractGodEffect(block.effectLines);
+        mainLines.forEach(l => lines.push(l));
+        if (godEffect) lines.push(`→ ${godEffect}`);
+      }
+    }
+
+    lines.push('===next===');
+  });
+
+  const merged = lines.join('\n');
+  document.getElementById('mergePreview').textContent = merged;
+  document.getElementById('mergeResult').style.display = 'block';
+  document.getElementById('mergeResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyMerged() {
+  const text = document.getElementById('mergePreview').textContent;
+  writeToClipboard(text, 'mergeCopyBtn', '📋 コピー');
+}
+
+function saveMerged() {
+  const text = document.getElementById('mergePreview').textContent;
+  downloadText(text, '合成結果.txt');
+}
+
+/* ============================================================
+   共通ユーティリティ
+============================================================ */
+function writeToClipboard(text, btnId, defaultLabel) {
+  navigator.clipboard.writeText(text).then(() => {
+    flashBtn(btnId, '✅ コピーしました！', defaultLabel);
+  }).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    flashBtn(btnId, '✅ コピーしました！', defaultLabel);
+  });
+}
+
+function flashBtn(btnId, msg, defaultLabel) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.textContent = msg;
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.textContent = defaultLabel;
+    btn.classList.remove('copied');
+  }, 2000);
+}
+
+function downloadText(text, filename) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  // iOS Safari対応：Web Share APIを優先
+  if (navigator.share && navigator.canShare) {
+    const file = new File([blob], filename, { type: 'text/plain' });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: filename })
+        .catch(e => { if (e.name !== 'AbortError') fallbackDownload(blob, filename); });
+      return;
+    }
+  }
+  fallbackDownload(blob, filename);
+}
+
+function fallbackDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   リセット
+============================================================ */
+function resetTool() {
+  results = [];
+  confirmItems = [];
+  currentBlocks = {};
+  shortcutRawText = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('shortcutFile').value = '';
+  document.getElementById('resultSection').style.display  = 'none';
+  document.getElementById('costSection').style.display    = 'none';
+  document.getElementById('mergeSection').style.display   = 'none';
+  document.getElementById('resetSection').style.display   = 'none';
+  document.getElementById('mergeResult').style.display    = 'none';
+  document.getElementById('shortcutLoaded').style.display = 'none';
+  document.getElementById('confirmTableArea').style.display = 'none';
+  document.getElementById('confirmCards').innerHTML = '';
+  document.getElementById('resultList').innerHTML = '';
+  document.getElementById('costList').innerHTML = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ============================================================
+   拡大モーダル
+============================================================ */
+function showModal(srcCanvas) {
+  const zoom = document.getElementById('zoomCanvas');
+  zoom.width  = srcCanvas.width;
+  zoom.height = srcCanvas.height;
+  zoom.getContext('2d').drawImage(srcCanvas, 0, 0);
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
