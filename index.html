@@ -14,7 +14,7 @@
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.24</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.25</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -123,6 +123,30 @@
 <script src="data.js"></script>
 <script src="ui.js"></script>
 <script>
+  /*
+   * グローバルエラーキャッチ
+   * JSエラー・未処理のPromiseエラーをデバッグパネルに赤字で表示する。
+   * 「処理中のまま止まる」原因を特定するために追加。
+   * data.jsのdebugLog()がロードされる前でも動くよう直接DOMを操作する。
+   * 更新: 2026-05-20 00:04
+   */
+  window.onerror = function(msg, src, line, col, err) {
+    const panel = document.getElementById('debugPanel');
+    if (panel) {
+      panel.style.display = 'block';
+      panel.innerHTML += `<span style="color:#ff5555">❌ JSエラー: ${msg}\n  場所: ${src} ${line}:${col}</span>\n`;
+    }
+    console.error('onerror:', msg, src, line, col, err);
+  };
+  window.addEventListener('unhandledrejection', function(e) {
+    const panel = document.getElementById('debugPanel');
+    if (panel) {
+      panel.style.display = 'block';
+      panel.innerHTML += `<span style="color:#ff5555">❌ 非同期エラー: ${e.reason}</span>\n`;
+    }
+    console.error('unhandledrejection:', e.reason);
+  });
+
   /* ============================================================
      定数・データ
   ============================================================ */
