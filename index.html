@@ -14,7 +14,7 @@
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.23</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.24</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -144,12 +144,27 @@
   for (const [name, hexes] of Object.entries(GODS)) GOD_RGB[name] = hexes.map(hexToRgb);
 
 
-  let results = [];
-  let confirmItems = []; // { resultIdx, excluded, charName, cardKey, hiramekiNum, kakureEffect, shinEffect, matchScore }
-  let currentBlocks = {}; // parseShortcutTextの結果を保持
-  let patternMode = 'auto'; // 'auto' | 'p2' | 'p1'
-  let cardMode = 'character'; // 'character' | 'shared'
-  let dataReady = false; // JSONロード完了フラグ
+  /*
+   * ── グローバル変数（外部JSファイルから参照される変数）──
+   *
+   * 【重要】意図的にwindowオブジェクトに公開しているグローバル変数。
+   * ui.js・app.jsから直接参照されるため、letやconstで宣言してはいけない。
+   * 参照側は window. なしの短縮形（results等）で記述してOK。
+   *
+   * 【過去の失敗 2026-05-19】
+   * ui.js切り出し時にlet宣言のままにしていたため、
+   * ui.jsからresultsが参照できずSTEP2が処理中のまま止まるバグが発生。
+   * letはscriptタグ内のブロックスコープに閉じるため外部JSから見えない。
+   *
+   * 新しい変数を追加する場合も必ずwindow.変数名の形で宣言すること。
+   * 更新: 2026-05-19 18:59
+   */
+  window.results       = [];
+  window.confirmItems  = []; // { resultIdx, excluded, charName, cardKey, hiramekiNum, kakureEffect, shinEffect, matchScore }
+  window.currentBlocks = {}; // parseShortcutTextの結果を保持
+  window.patternMode   = 'auto'; // 'auto' | 'p2' | 'p1'
+  window.cardMode      = 'character'; // 'character' | 'shared'
+  window.dataReady     = false; // JSONロード完了フラグ
 
   function setCardMode(mode) {
     cardMode = mode;
