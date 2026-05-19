@@ -25,9 +25,13 @@ let hiramekiShinSections  = []; // 神ヒラメキ用セクション構造
 let hiramekiKakureSections = []; // 隠れヒラメキ用セクション構造（★のみ）
 let ocrDict = { corrections: {}, terms: [] };
 
+// デバッグログをdebugPanelGlobal（常時表示）とdebugPanel（STEP4内）の両方に出力する
+// 更新: 2026-05-20 00:04
 function debugLog(msg) {
-  const panel = document.getElementById('debugPanel');
-  if (panel) panel.textContent += msg + '\n';
+  ['debugPanelGlobal', 'debugPanel'].forEach(id => {
+    const panel = document.getElementById(id);
+    if (panel) panel.textContent += msg + '\n';
+  });
   console.log(msg);
 }
 
