@@ -68,6 +68,19 @@ async function handleFiles(e) {
   document.getElementById('costSection').style.display = 'block';
   document.getElementById('mergeSection').style.display = 'block';
   document.getElementById('resetSection').style.display = 'block';
+
+  // 画像選択だけでSTEP4まで自動表示する（一気通貫）
+  // ショートカットtxtなしでも確認・選択作業ができる状態にする。
+  // ショートカットtxtを後から読み込んだ場合はloadShortcutFile()内でrenderConfirmCardsが
+  // 再度呼ばれてcurrentBlocksの内容で上書きされる。
+  // 更新: 2026-05-20 20:44
+  if (dataReady) {
+    renderConfirmCards(currentBlocks, false);
+  } else {
+    // JSON読み込み中の場合はローディング表示
+    // loadDataFiles()完了時にrenderConfirmCardsが自動実行される（data.js参照）
+    document.getElementById('dataLoadingMsg').style.display = 'block';
+  }
   document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
