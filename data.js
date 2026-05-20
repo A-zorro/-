@@ -160,14 +160,15 @@ function similarity(a, b) {
   return inter / (ba.size + bb.size - inter);
 }
 
-function matchHirameki(ocrEffectText, ocrKind) {
+// mode引数追加: 2026-05-20 22:47 カードごとのモード対応のためglobal cardModeから引数に変更
+function matchHirameki(ocrEffectText, ocrKind, mode) {
   const norm = normalizeOCR(ocrEffectText);
   const candidates = [];
 
   // ヒラメキリストの全効果テキストリスト（組み合わせ用）
   const effectValues = Object.values(hiramekiEffects);
 
-  if (cardMode === 'shared') {
+  if (mode === 'shared') {
     // ── 共用版：sharedDataのbaseEffectと照合 ──
     for (const [fileName, fileData] of Object.entries(sharedData)) {
       for (const [cardName, card] of Object.entries(fileData.cards || {})) {
