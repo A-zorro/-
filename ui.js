@@ -263,7 +263,7 @@ function renderConfirmCards(blocks, preserveItems) {
       resultIdx: idx, excluded: false, mode: 'character',
       charName: null, cardKey: null, hiramekiNum: null,
       kakureEffect: null, shinEffect: null, matchScore: 0,
-      sharedCardName: null
+      sharedCardName: null, sharedFileId: null // 共用版カテゴリID 2026-05-20 23:44
     }));
   }
 
@@ -474,24 +474,34 @@ function renderConfirmCards(blocks, preserveItems) {
 
     // ヘルパー：select行を作る（キャラ版・共用版共通）
     if (item.mode === 'shared') {
-      // ── 共用カード版 ──
+      // ── 共用カード版（2段階選択：ファイル→カード名）── 2026-05-20 23:44
 
-      // カード名（共用JSONから全カード名リストを生成してドロップダウン表示）
-      const allSharedCards = [];
-      for (const [fileName, fileData] of Object.entries(sharedData)) {
-        for (const cardName of Object.keys(fileData.cards || {})) {
-          allSharedCards.push(cardName);
+      // 1段目：ファイル選択（manifest.sharedのname表示・id管理）
+      const sharedFileOptions = [['', '（カテゴリ未選択）'],
+        ...window._sharedManifest.map(e => [e.id, e.name])];
+      const { row: fileRow } = makeSelectRow(
+        '⬜ カテゴリ', sharedFileOptions, item.sharedFileId || '',
+        false,
+        val => {
+          item.sharedFileId = val || null;
+          item.sharedCardName = null; // カテゴリ変更時にカード選択をリセット
+          renderConfirmCards(currentBlocks, true);
         }
-        for (const cardName of Object.keys(fileData.arenaCards || {})) {
-          allSharedCards.push(cardName);
-        }
-      }
+      );
+      selects.appendChild(fileRow);
+
+      // 2段目：選択中ファイル内のカード名
+      const selectedFileData = item.sharedFileId ? sharedData[item.sharedFileId] : null;
+      const fileCards = selectedFileData
+        ? [...Object.keys(selectedFileData.cards || {}),
+           ...Object.keys(selectedFileData.arenaCards || {})]
+        : [];
       const block = currentBlocks[r.index];
       const autoName = block && block.nameLines[0] ? block.nameLines[0] : '';
-      const nameOptions = [['', '（未特定）'], ...allSharedCards.map(n => [n, n])];
+      const nameOptions = [['', '（未特定）'], ...fileCards.map(n => [n, n])];
       const { row: nameRow } = makeSelectRow(
         '⬜ カード名', nameOptions, item.sharedCardName || autoName,
-        false,
+        !item.sharedFileId,
         val => { item.sharedCardName = val || null; renderConfirmCards(currentBlocks, true); }
       );
       selects.appendChild(nameRow);
@@ -744,7 +754,8 @@ function makeHpanelTrigger(label, sections, currentVal, disabled, onChange) {
   btn.className = 'hpanel-trigger' + (disabled ? ' disabled' : '');
   const valSpan = document.createElement('span');
   valSpan.className = 'hpanel-val';
-  valSpan.textContent = currentVal || '－';
+  // 初期表示もidではなくテキストで表示する 2026-05-20 23:44
+  valSpan.textContent = currentVal ? (_hpanelFindText(sections, currentVal) || currentVal) : '－';
   const arr = document.createElement('span');
   arr.className = 'hpanel-arr';
   arr.textContent = '▼';
