@@ -508,7 +508,7 @@ function renderConfirmCards(blocks, preserveItems) {
 
       // 通常ヒラメキ（パネル選択）
       const { row: effectRow } = makeHpanelTrigger(
-        '⬜ 通常ヒラメキ', hiramekiShinSections,
+        '⬜ 通常ヒラメキ', hiramekiKakureSections,
         item.kakureEffect || null, false,
         id => { item.kakureEffect = id || null; renderConfirmCards(currentBlocks, true); }
       );
