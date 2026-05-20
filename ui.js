@@ -3,7 +3,7 @@
  * 役割: 各STEPのUI描画とヒラメキ選択パネルの制御
  * 依存: data.js（hiramekiShinSections・hiramekiKakureSections・hiramekiEffectsを参照）
  *       index.htmlのwindowグローバル変数（results・confirmItems・currentBlocks・
- *       cardMode・dataReady・patternModeを参照。letではなくwindow宣言が必要な理由は
+ *       dataReady・patternMode・shortcutRawTextを参照。letではなくwindow宣言が必要な理由は
  *       index.html内のコメントを参照）
  * 被依存: app.js（render系関数・パネル関数を呼び出す）
  *
@@ -217,7 +217,7 @@ function renderResultList() {
 /* ============================================================
    ショートカットファイル読み込み
 ============================================================ */
-let shortcutRawText = '';
+// shortcutRawTextはindex.htmlでwindow.shortcutRawTextとして宣言 2026-05-20 22:47
 
 function loadShortcutFile(e) {
   const file = e.target.files[0];
@@ -258,8 +258,9 @@ function applyGodStyle(el, godName) {
 
 function renderConfirmCards(blocks, preserveItems) {
   if (!preserveItems) {
+    // mode: 'character' | 'shared' - カードごとのモード 2026-05-20 22:47
     confirmItems = results.map((_, idx) => ({
-      resultIdx: idx, excluded: false,
+      resultIdx: idx, excluded: false, mode: 'character',
       charName: null, cardKey: null, hiramekiNum: null,
       kakureEffect: null, shinEffect: null, matchScore: 0,
       sharedCardName: null
@@ -279,7 +280,7 @@ function renderConfirmCards(blocks, preserveItems) {
     const ocrKind = ocrKindRaw ? ocrKindRaw.trim() : null;
 
     // 照合実行
-    const matches = matchHirameki(ocrEffect, ocrKind);
+    const matches = matchHirameki(ocrEffect, ocrKind, item.mode);
     const top = matches[0] || null;
 
     // 神様（auto-selectionより前に定義）
@@ -294,7 +295,7 @@ function renderConfirmCards(blocks, preserveItems) {
       item.hiramekiNum = top.hiramekiNum;
       item.matchScore  = top.score;
       // 共用版：照合結果のカード名をsharedCardNameに自動反映
-      if (cardMode === 'shared' && !item.sharedCardName) {
+      if (item.mode === 'shared' && !item.sharedCardName) {
         item.sharedCardName = top.cardKey;
       }
 
@@ -314,7 +315,7 @@ function renderConfirmCards(blocks, preserveItems) {
             item.kakureEffect = bestKey;
           } else if (hasGod) {
             item.shinEffect = bestKey;
-          } else if (cardMode === 'shared') {
+          } else if (item.mode === 'shared') {
             // 共用版の通常ヒラメキ（神なし）
             item.kakureEffect = bestKey;
           }
@@ -336,7 +337,7 @@ function renderConfirmCards(blocks, preserveItems) {
 
     // 整形済みテキスト
     let formattedText = '';
-    if (cardMode === 'shared') {
+    if (item.mode === 'shared') {
       const block = currentBlocks[r.index];
       const sharedCardName = item.sharedCardName || (block && block.nameLines[0]) || '（未取得）';
       // sharedDataからbaseEffectを取得
@@ -400,6 +401,21 @@ function renderConfirmCards(blocks, preserveItems) {
     const card = document.createElement('div');
     card.className = 'match-card' + (item.excluded ? ' excluded' : '');
 
+    // ── モード切り替えボタン（キャラ版 / 共用版）── 2026-05-20 22:47
+    const modeToggle = document.createElement('div');
+    modeToggle.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+    const btnChar = document.createElement('button');
+    btnChar.textContent = '🎭 キャラ版';
+    btnChar.style.cssText = `flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:${item.mode==='character'?'2px solid #78DEC1':'1px solid #444'};background:${item.mode==='character'?'rgba(120,222,193,0.15)':'transparent'};color:${item.mode==='character'?'#78DEC1':'#666'};`;
+    btnChar.onclick = () => { item.mode = 'character'; renderConfirmCards(currentBlocks, true); };
+    const btnShared = document.createElement('button');
+    btnShared.textContent = '🃏 共用版';
+    btnShared.style.cssText = `flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:${item.mode==='shared'?'2px solid #fbbf24':'1px solid #444'};background:${item.mode==='shared'?'rgba(251,191,36,0.15)':'transparent'};color:${item.mode==='shared'?'#fbbf24':'#666'};`;
+    btnShared.onclick = () => { item.mode = 'shared'; renderConfirmCards(currentBlocks, true); };
+    modeToggle.appendChild(btnChar);
+    modeToggle.appendChild(btnShared);
+    card.appendChild(modeToggle);
+
     // ヘッダー
     const header = document.createElement('div');
     header.className = 'match-card-header';
@@ -457,7 +473,7 @@ function renderConfirmCards(blocks, preserveItems) {
     selects.className = 'match-selects';
 
     // ヘルパー：select行を作る（キャラ版・共用版共通）
-    if (cardMode === 'shared') {
+    if (item.mode === 'shared') {
       // ── 共用カード版 ──
 
       // カード名（共用JSONから全カード名リストを生成してドロップダウン表示）
