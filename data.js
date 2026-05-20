@@ -102,8 +102,12 @@ async function loadDataFiles() {
     const loadingMsg = document.getElementById('dataLoadingMsg');
     if (loadingMsg) loadingMsg.style.display = 'none';
 
-    // テキストファイルが先に読み込まれていた場合は再レンダリング（ヒラメキタブ依存バグ修正）
-    if (Object.keys(currentBlocks).length > 0) {
+    // JSON読み込み完了後にSTEP4を自動レンダリングする。
+    // 画像選択済み（results.length > 0）またはショートカットtxt読み込み済みの場合に実行。
+    // これにより「画像のみ→STEP4表示」「txt先行読み込み→JSON完了後にSTEP4表示」の
+    // 両方のケースをカバーする。
+    // 更新: 2026-05-20 20:44
+    if (results.length > 0 || Object.keys(currentBlocks).length > 0) {
       renderConfirmCards(currentBlocks, false);
     }
   } catch (e) {
