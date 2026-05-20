@@ -4,7 +4,7 @@
  * 依存: cost.js（cropCostCanvas・detectCostColor・matchCostDigitTemplate・detectCostDigitを使用）
  *       data.js（loadDataFiles・matchHirameki・normalizeOCRを使用）
  *       ui.js（renderResultList・renderCostList・renderConfirmCards・makeHpanelTrigger等を使用）
- *       index.htmlのwindowグローバル変数（results・confirmItems・currentBlocks・cardMode・dataReady）
+ *       index.htmlのwindowグローバル変数（results・confirmItems・currentBlocks・dataReady・shortcutRawText）
  * 被依存: なし（最終段）
  *
  * 【重要】index.htmlの<script>タグ内に関数があるとブロックスコープに閉じてしまい、
@@ -12,30 +12,8 @@
  * 更新: 2026-05-20 00:04
  */
 
-function setCardMode(mode) {
-  cardMode = mode;
-  const charBtn   = document.getElementById('toggleCharBtn');
-  const sharedBtn = document.getElementById('toggleSharedBtn');
-  if (mode === 'character') {
-    charBtn.style.borderColor   = '#78DEC1';
-    charBtn.style.background    = 'rgba(120,222,193,0.15)';
-    charBtn.style.color         = '#78DEC1';
-    sharedBtn.style.borderColor = '#444';
-    sharedBtn.style.background  = 'transparent';
-    sharedBtn.style.color       = '#666';
-  } else {
-    sharedBtn.style.borderColor = '#fbbf24';
-    sharedBtn.style.background  = 'rgba(251,191,36,0.15)';
-    sharedBtn.style.color       = '#fbbf24';
-    charBtn.style.borderColor   = '#444';
-    charBtn.style.background    = 'transparent';
-    charBtn.style.color         = '#666';
-  }
-  // モード切替時にテキスト読み込み済みなら再レンダリング
-  if (dataReady && Object.keys(currentBlocks).length > 0) {
-    renderConfirmCards(currentBlocks, false);
-  }
-}
+// setCardMode()はSTEP G実装に伴い削除（2026-05-20 22:47）
+// カード単位のモード切り替えはui.jsのrenderConfirmCards内のボタンで行う
 
 function setPattern(mode) {
   patternMode = mode;
@@ -269,7 +247,31 @@ function mergeData() {
     lines.push('##==コスト==');
     lines.push(`${costDigitVal}/${costColorVal}`);
 
-    if (selCard) {
+    // 共用版・キャラ版で出力フォーマットを分岐 2026-05-20 22:47
+    if (item.mode === 'shared') {
+      // ── 共用版出力 ──
+      const sharedCardName = item.sharedCardName || '（未特定）';
+      let sharedBaseEffect = '';
+      for (const fileData of Object.values(sharedData)) {
+        const c = (fileData.cards || {})[sharedCardName] || (fileData.arenaCards || {})[sharedCardName];
+        if (c) { sharedBaseEffect = c.baseEffect; break; }
+      }
+      lines.push('##==カード名・種別==');
+      lines.push(sharedCardName);
+      if (sharedBaseEffect) {
+        lines.push('##==カード効果・ヒラメキ==');
+        lines.push(sharedBaseEffect);
+      }
+      if (item.kakureEffect && item.kakureEffect !== '－') {
+        lines.push('##==通常ヒラメキ==');
+        lines.push(hiramekiEffects[item.kakureEffect] || item.kakureEffect);
+      }
+      if (godName !== '通常ヒラメキ' && item.shinEffect && item.shinEffect !== '－') {
+        lines.push('##==神ヒラメキ追加効果==');
+        lines.push(hiramekiEffects[item.shinEffect] || item.shinEffect);
+      }
+    } else if (selCard) {
+      // ── キャラ版出力 ──
       lines.push('##==キャラクター==');
       lines.push(item.charName);
       lines.push('##==カード==');
