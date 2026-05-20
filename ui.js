@@ -457,147 +457,6 @@ function renderConfirmCards(blocks, preserveItems) {
     selects.className = 'match-selects';
 
     // ヘルパー：select行を作る（キャラ版・共用版共通）
-
-    // ── ヒラメキ選択パネル ──
-    let _hpanelCallback = null;
-    let _hpanelCurrent  = null;
-
-    function hpanelOpen(titleText, sections, currentVal, onSelect) {
-      _hpanelCallback = onSelect;
-      _hpanelCurrent  = currentVal;
-      document.getElementById('hpanelTitle').textContent = titleText;
-      document.getElementById('hpanelSearch').value = '';
-      _hpanelRender(sections, '');
-      document.getElementById('hpanelOverlay').classList.add('open');
-      document.getElementById('hpanelSearch').focus();
-      // オーバーレイクリックで閉じる
-      document.getElementById('hpanelOverlay').onclick = e => {
-        if (e.target === document.getElementById('hpanelOverlay')) hpanelClose();
-      };
-      // 検索欄
-      document.getElementById('hpanelSearch').oninput = function() {
-        _hpanelRender(sections, this.value.trim());
-      };
-    }
-
-    function hpanelClose() {
-      document.getElementById('hpanelOverlay').classList.remove('open');
-    }
-
-    function _hpanelEscRE(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-    function _hpanelRender(sections, query) {
-      const body = document.getElementById('hpanelBody');
-      let html = '';
-
-      // クリア行
-      html += `<div class="hpanel-clear" onclick="_hpanelSelect(null)">− 選択を解除</div>`;
-
-      if (query) {
-        const q = query.toLowerCase();
-        let count = 0;
-        for (const sec of sections) {
-          for (const grp of (sec.groups || [])) {
-            for (const [id, text] of Object.entries(grp.entries || {})) {
-              if (text.toLowerCase().includes(q)) {
-                const hi = text.replace(new RegExp('(' + _hpanelEscRE(query) + ')', 'gi'), '<mark>$1</mark>');
-                const sel = id === _hpanelCurrent ? ' selected' : '';
-                html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${hi}</div>`;
-                count++;
-              }
-            }
-          }
-        }
-        if (!count) html += '<div class="hpanel-noresult">該当なし</div>';
-      } else {
-        for (const sec of sections) {
-          const total = (sec.groups || []).reduce((n, g) => n + Object.keys(g.entries || {}).length, 0);
-          html += `<div class="hpanel-section open" id="hpsec-${sec.id}">`;
-          html += `<div class="hpanel-sec-hd" onclick="this.closest('.hpanel-section').classList.toggle('open')">`;
-          html += `<span class="hpanel-sec-name">${sec.id} ${sec.name}</span>`;
-          html += `<div class="hpanel-sec-meta"><span class="hpanel-sec-count">${total}件</span><span class="hpanel-sec-chev">▼</span></div>`;
-          html += `</div><div class="hpanel-sec-body">`;
-          for (const grp of (sec.groups || [])) {
-            html += `<div class="hpanel-grp-label">${grp.name}</div>`;
-            for (const [id, text] of Object.entries(grp.entries || {})) {
-              const sel = id === _hpanelCurrent ? ' selected' : '';
-              html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${text}</div>`;
-            }
-          }
-          html += `</div></div>`;
-        }
-      }
-      body.innerHTML = html;
-    }
-
-    function _hpanelSelect(id) {
-      hpanelClose();
-      if (_hpanelCallback) _hpanelCallback(id);
-    }
-
-    function makeHpanelTrigger(label, sections, currentVal, disabled, onChange) {
-      const row = document.createElement('div');
-      row.className = 'match-select-row';
-      const lbl = document.createElement('div');
-      lbl.className = 'match-select-label';
-      lbl.textContent = label;
-      const btn = document.createElement('button');
-      btn.className = 'hpanel-trigger' + (disabled ? ' disabled' : '');
-      const valSpan = document.createElement('span');
-      valSpan.className = 'hpanel-val';
-      valSpan.textContent = currentVal || '－';
-      const arr = document.createElement('span');
-      arr.className = 'hpanel-arr';
-      arr.textContent = '▼';
-      btn.appendChild(valSpan);
-      btn.appendChild(arr);
-      if (!disabled) {
-        btn.onclick = () => {
-          hpanelOpen(label, sections, _hpanelCurrent, id => {
-            const text = id ? _hpanelFindText(sections, id) : '－';
-            valSpan.textContent = text;
-            onChange(id);
-          });
-          // 現在値を設定
-          _hpanelCurrent = currentVal;
-        };
-      }
-      row.appendChild(lbl);
-      row.appendChild(btn);
-      return { row, btn, valSpan };
-    }
-
-    function _hpanelFindText(sections, id) {
-      for (const sec of sections) {
-        for (const grp of (sec.groups || [])) {
-          if (grp.entries && grp.entries[id]) return grp.entries[id];
-        }
-      }
-      return id;
-    }
-
-    function makeSelectRow(label, options, selectedVal, disabled, onChange) {
-      const row = document.createElement('div');
-      row.className = 'match-select-row';
-      const lbl = document.createElement('div');
-      lbl.className = 'match-select-label';
-      lbl.textContent = label;
-      const sel = document.createElement('select');
-      sel.className = 'match-select';
-      sel.disabled = disabled;
-      options.forEach(([val, text]) => {
-        const opt = document.createElement('option');
-        opt.value = val;
-        opt.textContent = text;
-        if (val === selectedVal) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      if (!disabled) sel.addEventListener('change', () => onChange(sel.value));
-      row.appendChild(lbl);
-      row.appendChild(sel);
-      return { row, sel };
-    }
-
     if (cardMode === 'shared') {
       // ── 共用カード版 ──
 
@@ -766,3 +625,159 @@ function renderConfirmCards(blocks, preserveItems) {
 
   document.getElementById('confirmTableArea').style.display = 'block';
 }
+
+/* ── ヒラメキ選択パネル（グローバルスコープ） ── */
+
+// ── ヒラメキ選択パネル ──
+let _hpanelCallback = null;
+let _hpanelCurrent  = null;
+
+// hpanelSearch()から参照するためにアクティブなsectionsを保持
+// hpanelOpen()が呼ばれるたびに更新される
+// 更新: 2026-05-20 20:44
+let _hpanelActiveSections = null;
+
+function hpanelOpen(titleText, sections, currentVal, onSelect) {
+  _hpanelActiveSections = sections;
+  _hpanelCallback = onSelect;
+  _hpanelCurrent  = currentVal;
+  document.getElementById('hpanelTitle').textContent = titleText;
+  document.getElementById('hpanelSearch').value = '';
+  _hpanelRender(sections, '');
+  document.getElementById('hpanelOverlay').classList.add('open');
+  document.getElementById('hpanelSearch').focus();
+  // オーバーレイクリックで閉じる
+  document.getElementById('hpanelOverlay').onclick = e => {
+    if (e.target === document.getElementById('hpanelOverlay')) hpanelClose();
+  };
+  // 検索欄
+  document.getElementById('hpanelSearch').oninput = function() {
+    _hpanelRender(sections, this.value.trim());
+  };
+}
+
+function hpanelClose() {
+  document.getElementById('hpanelOverlay').classList.remove('open');
+}
+
+// index.htmlのoninput="hpanelSearch(this.value)"から呼び出されるフォールバック関数
+// hpanelOpen()内のoninput上書きが優先されるが、パネルが開く前の呼び出しに備えて定義
+// 更新: 2026-05-20 20:44
+function hpanelSearch(val) {
+  if (_hpanelActiveSections) _hpanelRender(_hpanelActiveSections, (val || '').trim());
+}
+
+function _hpanelEscRE(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function _hpanelRender(sections, query) {
+  const body = document.getElementById('hpanelBody');
+  let html = '';
+
+  // クリア行
+  html += `<div class="hpanel-clear" onclick="_hpanelSelect(null)">− 選択を解除</div>`;
+
+  if (query) {
+    const q = query.toLowerCase();
+    let count = 0;
+    for (const sec of sections) {
+      for (const grp of (sec.groups || [])) {
+        for (const [id, text] of Object.entries(grp.entries || {})) {
+          if (text.toLowerCase().includes(q)) {
+            const hi = text.replace(new RegExp('(' + _hpanelEscRE(query) + ')', 'gi'), '<mark>$1</mark>');
+            const sel = id === _hpanelCurrent ? ' selected' : '';
+            html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${hi}</div>`;
+            count++;
+          }
+        }
+      }
+    }
+    if (!count) html += '<div class="hpanel-noresult">該当なし</div>';
+  } else {
+    for (const sec of sections) {
+      const total = (sec.groups || []).reduce((n, g) => n + Object.keys(g.entries || {}).length, 0);
+      html += `<div class="hpanel-section open" id="hpsec-${sec.id}">`;
+      html += `<div class="hpanel-sec-hd" onclick="this.closest('.hpanel-section').classList.toggle('open')">`;
+      html += `<span class="hpanel-sec-name">${sec.id} ${sec.name}</span>`;
+      html += `<div class="hpanel-sec-meta"><span class="hpanel-sec-count">${total}件</span><span class="hpanel-sec-chev">▼</span></div>`;
+      html += `</div><div class="hpanel-sec-body">`;
+      for (const grp of (sec.groups || [])) {
+        html += `<div class="hpanel-grp-label">${grp.name}</div>`;
+        for (const [id, text] of Object.entries(grp.entries || {})) {
+          const sel = id === _hpanelCurrent ? ' selected' : '';
+          html += `<div class="hpanel-entry${sel}" onclick="_hpanelSelect('${id}')">${text}</div>`;
+        }
+      }
+      html += `</div></div>`;
+    }
+  }
+  body.innerHTML = html;
+}
+
+function _hpanelSelect(id) {
+  hpanelClose();
+  if (_hpanelCallback) _hpanelCallback(id);
+}
+
+function makeHpanelTrigger(label, sections, currentVal, disabled, onChange) {
+  const row = document.createElement('div');
+  row.className = 'match-select-row';
+  const lbl = document.createElement('div');
+  lbl.className = 'match-select-label';
+  lbl.textContent = label;
+  const btn = document.createElement('button');
+  btn.className = 'hpanel-trigger' + (disabled ? ' disabled' : '');
+  const valSpan = document.createElement('span');
+  valSpan.className = 'hpanel-val';
+  valSpan.textContent = currentVal || '－';
+  const arr = document.createElement('span');
+  arr.className = 'hpanel-arr';
+  arr.textContent = '▼';
+  btn.appendChild(valSpan);
+  btn.appendChild(arr);
+  if (!disabled) {
+    btn.onclick = () => {
+      hpanelOpen(label, sections, _hpanelCurrent, id => {
+        const text = id ? _hpanelFindText(sections, id) : '－';
+        valSpan.textContent = text;
+        onChange(id);
+      });
+      // 現在値を設定
+      _hpanelCurrent = currentVal;
+    };
+  }
+  row.appendChild(lbl);
+  row.appendChild(btn);
+  return { row, btn, valSpan };
+}
+
+function _hpanelFindText(sections, id) {
+  for (const sec of sections) {
+    for (const grp of (sec.groups || [])) {
+      if (grp.entries && grp.entries[id]) return grp.entries[id];
+    }
+  }
+  return id;
+}
+
+function makeSelectRow(label, options, selectedVal, disabled, onChange) {
+  const row = document.createElement('div');
+  row.className = 'match-select-row';
+  const lbl = document.createElement('div');
+  lbl.className = 'match-select-label';
+  lbl.textContent = label;
+  const sel = document.createElement('select');
+  sel.className = 'match-select';
+  sel.disabled = disabled;
+  options.forEach(([val, text]) => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = text;
+    if (val === selectedVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if (!disabled) sel.addEventListener('change', () => onChange(sel.value));
+  row.appendChild(lbl);
+  row.appendChild(sel);
+  return { row, sel };
+}
+
