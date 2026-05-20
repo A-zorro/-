@@ -61,6 +61,10 @@ async function loadDataFiles() {
       }
     }
     ocrDict = await ocrRes.json();
+    // shared manifestをui.jsから参照できるようwindowに保存 2026-05-20 23:44
+    window._sharedManifest = (manifest.shared || []).map(e =>
+      (typeof e === 'string') ? { id: e, name: e } : e
+    );
     debugLog(`[manifest] characters: ${JSON.stringify(manifest.characters)}`);
     debugLog(`[manifest] shared: ${JSON.stringify(manifest.shared)}`);
 
@@ -78,17 +82,20 @@ async function loadDataFiles() {
 
     // shared JSON読み込み
     if (manifest.shared && manifest.shared.length > 0) {
-      await Promise.all(manifest.shared.map(async name => {
-        const url = DATA_BASE + encodeURIComponent(name + '.json');
-        debugLog(`[shared] fetch: ${name}`);
+      // キャラ版と同様にid/name形式に対応（文字列の場合は後方互換）
+      // 更新: 2026-05-20 23:44
+      await Promise.all(manifest.shared.map(async entry => {
+        const id   = (typeof entry === 'string') ? entry : entry.id;
+        const url = DATA_BASE + encodeURIComponent(id + '.json');
+        debugLog(`[shared] fetch: ${id}`);
         const res = await fetch(url);
-        debugLog(`[shared] ${name}: ${res.status}`);
+        debugLog(`[shared] ${id}: ${res.status}`);
         if (res.ok) {
-          sharedData[name] = await res.json();
-          const cardCount = Object.keys(sharedData[name].cards || {}).length;
-          debugLog(`[shared] ${name} カード数: ${cardCount}`);
+          sharedData[id] = await res.json();
+          const cardCount = Object.keys(sharedData[id].cards || {}).length;
+          debugLog(`[shared] ${id} カード数: ${cardCount}`);
         } else {
-          debugLog(`[shared] ERROR ${name} → ${res.status} ${res.statusText}`);
+          debugLog(`[shared] ERROR ${id} → ${res.status} ${res.statusText}`);
         }
       }));
     } else {
