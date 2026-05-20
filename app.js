@@ -70,10 +70,13 @@ async function handleFiles(e) {
   document.getElementById('resetSection').style.display = 'block';
 
   // 画像選択だけでSTEP4まで自動表示する（一気通貫）
-  // ショートカットtxtなしでも確認・選択作業ができる状態にする。
-  // ショートカットtxtを後から読み込んだ場合はloadShortcutFile()内でrenderConfirmCardsが
-  // 再度呼ばれてcurrentBlocksの内容で上書きされる。
-  // 更新: 2026-05-20 20:44
+  // shortcutLoadedはloadShortcutFile()でも表示されるが、
+  // 画像のみモードでも表示が必要なためここでも設定する。
+  // txtを後から読み込んだ場合はloadShortcutFile()が上書きするため競合しない。
+  // 更新: 2026-05-20 22:03
+  document.getElementById('shortcutLoaded').style.display = 'block';
+  document.getElementById('shortcutFileName').textContent = '';
+
   if (dataReady) {
     renderConfirmCards(currentBlocks, false);
   } else {
