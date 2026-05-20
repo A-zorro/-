@@ -14,7 +14,7 @@
  *   hiramekiShinSections   - 神ヒラメキリストのセクション構造
  *   hiramekiKakureSections - 隠ヒラメキリストのセクション構造（★のみ）
  *   ocrDict                - OCR誤認識対策辞典
- * 更新: 2026-05-19 17:53
+ * 更新: 2026-05-20 20:44
  */
 
 const DATA_BASE = 'https://raw.githubusercontent.com/A-zorro/-/main/data/';
@@ -26,7 +26,7 @@ let hiramekiKakureSections = []; // 隠れヒラメキ用セクション構造�
 let ocrDict = { corrections: {}, terms: [] };
 
 // デバッグログをdebugPanelGlobal（常時表示）とdebugPanel（STEP4内）の両方に出力する
-// 更新: 2026-05-20 00:04
+// 更新: 2026-05-20 20:44
 function debugLog(msg) {
   ['debugPanelGlobal', 'debugPanel'].forEach(id => {
     const panel = document.getElementById(id);
@@ -119,108 +119,3 @@ loadDataFiles();
 /* ============================================================
    OCR正規化・照合ロジック
 ============================================================ */
-function normalizeOCR(text) {
-  let result = text || '';
-  // 誤認識テーブルで直接置換
-  for (const [wrong, correct] of Object.entries(ocrDict.corrections || {})) {
-    result = result.replaceAll(wrong, correct);
-  }
-  // 句読点（、）を除外して照合する
-  // 理由：ゲーム画像に「、」がない箇所にClaudeが勝手に補完したテキストが
-  // JSONやPDFに混入している可能性があるため、比較時のみ除外して精度を保つ。
-  // 記録テキスト自体は変更しない。
-  result = result.replace(/、/g, '');
-  return result.replace(/\s+/g, '');
-}
-
-function getBigrams(text) {
-  const set = new Set();
-  for (let i = 0; i < text.length - 1; i++) set.add(text.slice(i, i + 2));
-  return set;
-}
-
-function similarity(a, b) {
-  const ba = getBigrams(a), bb = getBigrams(b);
-  if (ba.size === 0 && bb.size === 0) return 1;
-  if (ba.size === 0 || bb.size === 0) return 0;
-  let inter = 0;
-  for (const g of ba) { if (bb.has(g)) inter++; }
-  return inter / (ba.size + bb.size - inter);
-}
-
-function matchHirameki(ocrEffectText, ocrKind) {
-  const norm = normalizeOCR(ocrEffectText);
-  const candidates = [];
-
-  // ヒラメキリストの全効果テキストリスト（組み合わせ用）
-  const effectValues = Object.values(hiramekiEffects);
-
-  if (cardMode === 'shared') {
-    // ── 共用版：sharedDataのbaseEffectと照合 ──
-    for (const [fileName, fileData] of Object.entries(sharedData)) {
-      for (const [cardName, card] of Object.entries(fileData.cards || {})) {
-        const baseNorm = normalizeOCR(card.baseEffect);
-        let bestScore = similarity(norm, baseNorm);
-        for (const addEffect of effectValues) {
-          const combined = normalizeOCR(card.baseEffect + addEffect);
-          const s = similarity(norm, combined);
-          if (s > bestScore) bestScore = s;
-        }
-        if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-        candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
-      }
-      for (const [cardName, card] of Object.entries(fileData.arenaCards || {})) {
-        const baseNorm = normalizeOCR(card.baseEffect);
-        let bestScore = similarity(norm, baseNorm);
-        for (const addEffect of effectValues) {
-          const combined = normalizeOCR(card.baseEffect + addEffect);
-          const s = similarity(norm, combined);
-          if (s > bestScore) bestScore = s;
-        }
-        if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-        candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
-      }
-    }
-  } else {
-    // ── キャラ版：characterDataのhiramekiと照合 ──
-    for (const [charName, charData] of Object.entries(characterData)) {
-      if (!charData.cards) continue;
-      for (const [cardKey, card] of Object.entries(charData.cards)) {
-        if (!card.hirameki) continue;
-        for (let n = 1; n <= 5; n++) {
-          const h = card.hirameki[String(n)];
-          if (!h) continue;
-          const hiramekiKind = h.kind || card.kind;
-          const baseNorm = normalizeOCR(h.effect);
-
-          // ① ベース効果単体のスコア
-          let bestScore = similarity(norm, baseNorm);
-
-          // ② ベース効果＋追加効果の組み合わせで最高スコアを探す
-          for (const addEffect of effectValues) {
-            const combined = normalizeOCR(h.effect + addEffect);
-            const s = similarity(norm, combined);
-            if (s > bestScore) bestScore = s;
-          }
-
-          // 種別一致ボーナス
-          if (ocrKind && hiramekiKind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-
-          candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score: bestScore, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
-        }
-
-        // X-6：基本効果と比較
-        const baseNorm = normalizeOCR(card.baseEffect);
-        let bestX6 = similarity(norm, baseNorm);
-        for (const addEffect of effectValues) {
-          const combined = normalizeOCR(card.baseEffect + addEffect);
-          const s = similarity(norm, combined) * 0.9;
-          if (s > bestX6) bestX6 = s;
-        }
-        if (ocrKind && card.kind === ocrKind) bestX6 = Math.min(1, bestX6 + 0.1);
-        candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: bestX6, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
-      }
-    }
-  }
-  return candidates.sort((a, b) => b.score - a.score);
-}
