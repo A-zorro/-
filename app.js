@@ -34,9 +34,12 @@ async function handleFiles(e) {
   const resultList    = document.getElementById('resultList');
 
   resultSection.style.display = 'block';
-  resultList.innerHTML = `<div class="processing">⏳ ${files.length}枚を処理中...</div>`;
 
+  // 1枚ずつ処理するたびに進捗を更新する
+  // 「N/M枚を処理中...」の形式で何枚目かを表示してユーザーの待機ストレスを軽減
+  // 更新: 2026-05-22 08:44
   for (let i = 0; i < files.length; i++) {
+    resultList.innerHTML = `<div class="processing">⏳ ${i + 1}/${files.length}枚を処理中...</div>`;
     const result = await processFile(files[i], i + 1);
     results.push(result);
   }
