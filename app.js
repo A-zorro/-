@@ -359,14 +359,19 @@ function flashBtn(btnId, msg, defaultLabel) {
   }, 2000);
 }
 
-// Web Share APIを廃止しfallbackDownloadに一本化。
-// 理由：Share APIのtitleパラメータをiOSが別ファイルとして扱い
-//       「テキスト.txt」が余分に生成されるバグの解消。
-// 影響：Share APIの共有シート（Googleドライブ直接共有等）は使用不可になる。
-//       PC・iPhoneともに<a download>タグによるダウンロードに統一。
-// 更新: 2026-05-22 05:45
+// Share APIのtitleを削除して余計な「テキスト.txt」生成を防ぐ。
+// titleなしで問題が再発する場合はfallbackDownloadに落ちる構造を維持。
+// 更新: 2026-05-22 07:46
 function downloadText(text, filename) {
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  if (navigator.share && navigator.canShare) {
+    const file = new File([blob], filename, { type: 'text/plain' });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file] })
+        .catch(e => { if (e.name !== 'AbortError') fallbackDownload(blob, filename); });
+      return;
+    }
+  }
   fallbackDownload(blob, filename);
 }
 
