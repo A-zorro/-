@@ -220,8 +220,12 @@ function extractGodEffect(lines) {
   return { mainLines: lines, godEffect: null };
 }
 
+// txtなしルートを許容するためガードを削除。
+// shortcutRawTextが空の場合、currentBlocksも空になるため
+// 照合なしカードのnameLines/effectLinesは出力されないが、
+// JSON照合済みカードは正常に出力される。
+// 更新: 2026-05-22 04:58
 function mergeData() {
-  if (!shortcutRawText.trim()) { alert('テキストファイルを先にアップロードしてね！'); return; }
   const lines = [];
   const activeItems = confirmItems.filter(item => !item.excluded);
 
@@ -313,18 +317,9 @@ function copyMerged() {
   writeToClipboard(text, 'mergeCopyBtn', '📋 コピー');
 }
 
-// ファイル名を「YYYY年MM月DD日-N件合体.txt」の形式で動的生成する
-// 件数は除外済みitem（excluded=true）を除いたactiveItemsの数
-// 更新: 2026-05-22 04:18
 function saveMerged() {
   const text = document.getElementById('mergePreview').textContent;
-  const now = new Date();
-  const y  = now.getFullYear();
-  const mo = String(now.getMonth() + 1).padStart(2, '0');
-  const d  = String(now.getDate()).padStart(2, '0');
-  const count = confirmItems.filter(item => !item.excluded).length;
-  const filename = `${y}年${mo}月${d}日-${count}件合体.txt`;
-  downloadText(text, filename);
+  downloadText(text, '合成結果.txt');
 }
 
 /* ============================================================
