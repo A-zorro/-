@@ -313,9 +313,18 @@ function copyMerged() {
   writeToClipboard(text, 'mergeCopyBtn', '📋 コピー');
 }
 
+// ファイル名を「YYYY年MM月DD日-N件合体.txt」の形式で動的生成する
+// 件数は除外済みitem（excluded=true）を除いたactiveItemsの数
+// 更新: 2026-05-22 04:18
 function saveMerged() {
   const text = document.getElementById('mergePreview').textContent;
-  downloadText(text, '合成結果.txt');
+  const now = new Date();
+  const y  = now.getFullYear();
+  const mo = String(now.getMonth() + 1).padStart(2, '0');
+  const d  = String(now.getDate()).padStart(2, '0');
+  const count = confirmItems.filter(item => !item.excluded).length;
+  const filename = `${y}年${mo}月${d}日-${count}件合体.txt`;
+  downloadText(text, filename);
 }
 
 /* ============================================================
