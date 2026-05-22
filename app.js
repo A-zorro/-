@@ -411,6 +411,101 @@ function resetTool() {
 }
 
 /* ============================================================
+   OCR処理（Tesseract.js）
+   前処理なし・元画像のままで認識精度が最良と判明しているため加工なし。
+   カード名・種別領域とカード効果領域の2箇所を固定座標で切り抜いて認識する。
+   結果はparseShortcutText()と同じ形式でcurrentBlocksに格納し、
+   renderConfirmCards()をそのまま利用する。
+   更新: 2026-05-22 08:57
+============================================================ */
+
+// OCR用固定切り抜き座標（p2パターン・絶対値）
+// ショートカットアプリと同じ座標を使用
+const OCR_REGION_NAME   = { x: 580, y: 120, w: 255, h: 100 }; // カード名・種別
+const OCR_REGION_EFFECT = { x: 495, y: 300, w: 350, h: 320 }; // カード効果・ヒラメキ
+
+// 画像から指定領域を切り抜いてCanvasを返す
+// region: { x, y, w, h }（絶対座標）
+// img: HTMLImageElement
+function cropRegion(img, region) {
+  const c = document.createElement('canvas');
+  c.width = region.w; c.height = region.h;
+  c.getContext('2d').drawImage(img, region.x, region.y, region.w, region.h, 0, 0, region.w, region.h);
+  return c;
+}
+
+// 全結果画像に対してOCRを実行し、currentBlocksに格納してSTEP4を再描画する
+// p2パターン以外の画像はスキップする
+// 更新: 2026-05-22 08:57
+async function runOCR() {
+  if (!results.length) { alert('先に画像を選択してね！'); return; }
+
+  const btn = document.getElementById('ocrBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ OCR処理中...';
+
+  const p2Results = results.filter(r => r.isP2);
+  if (!p2Results.length) {
+    alert('p2パターン（詳細画面フルスクショ）の画像がないよ！');
+    btn.disabled = false;
+    btn.textContent = '🔍 OCRで読み取る';
+    return;
+  }
+
+  for (let i = 0; i < p2Results.length; i++) {
+    const r = p2Results[i];
+    btn.textContent = `⏳ OCR ${i + 1}/${p2Results.length}枚処理中...`;
+
+    // nameCanvasからHTMLImageElementを再生成して切り抜く
+    // nameCanvasはp2時にprocessFile()で作成済み（x=530,y=140,w=300,h=480）
+    // OCR領域はnameCanvas内の相対座標に変換する
+    // nameCanvas: 元画像のx=530,y=140からの切り抜き
+    // OCR_REGION_NAME(x=580,y=120) → nameCanvas内では x=50, y=0 になる
+    const nameOffX = OCR_REGION_NAME.x - 530;
+    const nameOffY = OCR_REGION_NAME.y - 140;
+    const effectOffX = OCR_REGION_EFFECT.x - 530;
+    const effectOffY = OCR_REGION_EFFECT.y - 140;
+
+    const nameCanvas   = document.createElement('canvas');
+    nameCanvas.width   = OCR_REGION_NAME.w;
+    nameCanvas.height  = OCR_REGION_NAME.h;
+    nameCanvas.getContext('2d').drawImage(r.nameCanvas, nameOffX, nameOffY, OCR_REGION_NAME.w, OCR_REGION_NAME.h, 0, 0, OCR_REGION_NAME.w, OCR_REGION_NAME.h);
+
+    const effectCanvas   = document.createElement('canvas');
+    effectCanvas.width   = OCR_REGION_EFFECT.w;
+    effectCanvas.height  = OCR_REGION_EFFECT.h;
+    effectCanvas.getContext('2d').drawImage(r.nameCanvas, effectOffX, effectOffY, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h, 0, 0, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h);
+
+    try {
+      const [nameRes, effectRes] = await Promise.all([
+        Tesseract.recognize(nameCanvas,   'jpn', { tessedit_pageseg_mode: '6' }),
+        Tesseract.recognize(effectCanvas, 'jpn', { tessedit_pageseg_mode: '6' }),
+      ]);
+
+      const nameText   = (nameRes.data.text   || '').trim();
+      const effectText = (effectRes.data.text || '').trim();
+
+      // parseShortcutText()と同じ形式でcurrentBlocksに格納
+      // nameLines: カード名・種別行、effectLines: 効果テキスト行
+      currentBlocks[r.index] = {
+        nameLines:   nameText.split('\n').map(l => l.trim()).filter(l => l),
+        effectLines: effectText.split('\n').map(l => l.trim()).filter(l => l),
+      };
+    } catch (e) {
+      debugLog(`[OCR] エラー index:${r.index} ${e.message}`);
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔍 OCRで読み取る';
+
+  // STEP4を再描画（OCR結果を反映）
+  if (dataReady) {
+    renderConfirmCards(currentBlocks, false);
+  }
+}
+
+/* ============================================================
    拡大モーダル
 ============================================================ */
 function showModal(srcCanvas) {
