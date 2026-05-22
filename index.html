@@ -14,7 +14,7 @@
 <div class="header">
   <h1>⚡ 神様アイコン識別ツール</h1>
   <p>カオスゼロナイトメア｜複数枚一括識別</p>
-  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.34</p>
+  <p style="font-size:10px; color:#444444; margin-top:4px;">v3.35</p>
 </div>
 
 <!-- STEP 1: 画像選択 -->
@@ -66,11 +66,19 @@
   <!-- カード種別トグルはSTEP G実装に伴い削除（2026-05-20 22:47）-->
   <!-- 各カードセル内のボタンで個別に切り替える -->
 
-  <label class="upload-btn" style="width:100%; min-height:64px;">
-    <input type="file" id="shortcutFile" accept="text/plain,.txt" onchange="loadShortcutFile(event)">
-    <span class="upload-btn-icon">📄</span>
-    <span class="upload-btn-label">テキストファイルをアップロード</span>
-  </label>
+  <!-- OCRボタンとtxtアップロードを横並び配置。OCRが左・txtが右。
+       OCRはオプション機能でデフォルトは完全手動。2026-05-22追加 -->
+  <div style="display:flex; gap:8px; align-items:stretch;">
+    <button id="ocrBtn" onclick="runOCR()"
+      style="flex:1; min-height:64px; padding:12px 8px; border-radius:12px; border:1.5px solid #7eb8d4; background:rgba(126,184,212,0.08); color:#7eb8d4; font-family:'Noto Sans JP',sans-serif; font-size:13px; font-weight:700; cursor:pointer;">
+      🔍 OCRで読み取る
+    </button>
+    <label class="upload-btn" style="flex:1; min-height:64px;">
+      <input type="file" id="shortcutFile" accept="text/plain,.txt" onchange="loadShortcutFile(event)">
+      <span class="upload-btn-icon">📄</span>
+      <span class="upload-btn-label">テキストファイルをアップロード</span>
+    </label>
+  </div>
 
   <!-- ローディング表示 -->
 
@@ -117,6 +125,9 @@
   </div>
 </div>
 
+<!-- Tesseract.js CDN（OCRオプション機能用）
+     app.jsより前に読み込む必要がある。2026-05-22追加 -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="cost.js"></script>
 <script src="data.js"></script>
 <script src="ui.js"></script>
@@ -129,10 +140,6 @@
    * data.jsのdebugLog()がロードされる前でも動くよう直接DOMを操作する。
    * 更新: 2026-05-20 00:04
    */
-  // エラーを両方のデバッグパネルに赤字で出力する
-  // debugPanelGlobal: 常時表示（STEP2で止まる問題の診断用）
-  // debugPanel: STEP4内（JSON照合確認用）
-  // 更新: 2026-05-20 00:04
   function _writeErrorToPanel(msg) {
     ['debugPanelGlobal', 'debugPanel'].forEach(id => {
       const panel = document.getElementById(id);
@@ -171,7 +178,6 @@
   const GOD_RGB = {};
   for (const [name, hexes] of Object.entries(GODS)) GOD_RGB[name] = hexes.map(hexToRgb);
 
-
   /*
    * ── グローバル変数（外部JSファイルから参照される変数）──
    *
@@ -188,17 +194,13 @@
    * 更新: 2026-05-19 18:59
    */
   window.results       = [];
-  window.confirmItems  = []; // { resultIdx, excluded, charName, cardKey, hiramekiNum, kakureEffect, shinEffect, matchScore }
-  window.currentBlocks = {}; // parseShortcutTextの結果を保持
-  window.patternMode   = 'auto'; // 'auto' | 'p2' | 'p1'
+  window.confirmItems  = [];
+  window.currentBlocks = {};
+  window.patternMode   = 'auto';
   // window.cardMode は廃止（2026-05-20 22:47）各カードのitem.modeで管理
-  window.dataReady     = false; // JSONロード完了フラグ
-  // shortcutRawTextをwindow変数に移動（ui.jsから移動 2026-05-20 22:47）
+  window.dataReady     = false;
   window.shortcutRawText = '';
-
-
 </script>
-
 
 <!-- ヒラメキ選択パネル -->
 <div class="hpanel-overlay" id="hpanelOverlay">
