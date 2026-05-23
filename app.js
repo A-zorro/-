@@ -436,7 +436,7 @@ function resetTool() {
 // OCR用固定切り抜き座標（p2パターン・絶対値）
 // ショートカットアプリと同じ座標を使用
 const OCR_REGION_NAME   = { x: 580, y: 120, w: 255, h: 100 }; // カード名・種別
-const OCR_REGION_EFFECT = { x: 495, y: 300, w: 350, h: 320 }; // カード効果・ヒラメキ
+const OCR_REGION_EFFECT = { x: 517, y: 300, w: 318, h: 320 }; // カード効果・ヒラメキ
 
 // 画像から指定領域を切り抜いてCanvasを返す
 // region: { x, y, w, h }（絶対座標）
