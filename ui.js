@@ -1,6 +1,6 @@
 /*
  * ui.js
- * 役割: 各STEPのUI描画とヒラメキ選択パネルの制御
+ * 役割: 各STEPのUI描画とヒラメキ選択パネルの制御。
  * 依存: data.js（hiramekiShinSections・hiramekiKakureSections・hiramekiEffectsを参照）
  *       index.htmlのwindowグローバル変数（results・confirmItems・currentBlocks・
  *       dataReady・patternMode・shortcutRawTextを参照。letではなくwindow宣言が必要な理由は
