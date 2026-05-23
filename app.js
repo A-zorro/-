@@ -115,8 +115,22 @@ async function processFile(file, index) {
     nameCanvas.getContext('2d').drawImage(img, 530, 140, 300, 480, 0, 0, 300, 480);
   }
 
+  // OCR用フル画像Canvas（p2のみ）
+  // runOCR()がOCR_REGION_NAME/EFFECTの絶対座標で切り抜くために必要。
+  // r.canvas（神様アイコンクロップ）は小さすぎてx=580等の座標が範囲外になるため別途保持。
+  // P1は不要なのでnullのまま。メモリ節約のためP2のみ生成する。
+  // 更新: 2026-05-23 21:52
+  let fullCanvas = null;
+  if (pattern === 'p2') {
+    fullCanvas = document.createElement('canvas');
+    fullCanvas.width  = img.naturalWidth;
+    fullCanvas.height = img.naturalHeight;
+    fullCanvas.getContext('2d').drawImage(img, 0, 0);
+  }
+
   return { index, canvas, winner, scoreDiff, sorted,
-           costDigit, costTmpl, costFeat, costColor, costCanvas, nameCanvas, isP2: pattern === 'p2' };
+           costDigit, costTmpl, costFeat, costColor, costCanvas, nameCanvas,
+           fullCanvas, isP2: pattern === 'p2' };
 }
 
 // 16:9判定（パターン2）かそれ以外（パターン1）
@@ -438,14 +452,26 @@ function cropRegion(img, region) {
 // p2パターン以外の画像はスキップする
 // 更新: 2026-05-22 08:57
 async function runOCR() {
-  if (!results.length) { alert('先に画像を選択してね！'); return; }
+  // 診断用：関数の呼び出し自体を最初に記録
+  // p2Resultsが空の場合などの早期リターンでもログが残るようにするため先頭に配置
+  // 更新: 2026-05-23 21:52
+  debugLog(`[OCR] runOCR開始 results=${results.length}`);
+
+  if (!results.length) {
+    debugLog('[OCR] 早期リターン: 画像未選択');
+    alert('先に画像を選択してね！');
+    return;
+  }
 
   const btn = document.getElementById('ocrBtn');
   btn.disabled = true;
   btn.textContent = '⏳ OCR処理中...';
 
   const p2Results = results.filter(r => r.isP2);
+  debugLog(`[OCR] p2Results=${p2Results.length} / 全results=${results.length} isP2一覧=${JSON.stringify(results.map(r => r.isP2))}`);
+
   if (!p2Results.length) {
+    debugLog('[OCR] 早期リターン: P2画像なし');
     alert('p2パターン（詳細画面フルスクショ）の画像がないよ！');
     btn.disabled = false;
     btn.textContent = '🔍 OCRで読み取る';
@@ -456,14 +482,19 @@ async function runOCR() {
     const r = p2Results[i];
     btn.textContent = `⏳ OCR ${i + 1}/${p2Results.length}枚処理中...`;
 
-    // r.canvas（元画像全体のCanvas）から直接OCR領域を絶対座標で切り抜く
-    // nameCanvas経由だとオフセット計算でマイナス値が発生して範囲外になるため廃止
-    // 更新: 2026-05-23 20:43
+    // r.fullCanvas（フル画像Canvas）から直接OCR領域を絶対座標で切り抜く
+    // r.canvas は神様アイコン用の小さなクロップCanvas なのでOCR座標(x=580等)が範囲外になる
+    // processFile()でP2のみfullCanvasを保存するよう修正済み（2026-05-23 21:52）
+    if (!r.fullCanvas) {
+      debugLog(`[OCR] SKIP index:${r.index} fullCanvasがnull（P1画像の可能性）`);
+      continue;
+    }
+
     const nameCanvas   = document.createElement('canvas');
     nameCanvas.width   = OCR_REGION_NAME.w;
     nameCanvas.height  = OCR_REGION_NAME.h;
     nameCanvas.getContext('2d').drawImage(
-      r.canvas,
+      r.fullCanvas,
       OCR_REGION_NAME.x, OCR_REGION_NAME.y, OCR_REGION_NAME.w, OCR_REGION_NAME.h,
       0, 0, OCR_REGION_NAME.w, OCR_REGION_NAME.h
     );
@@ -472,10 +503,12 @@ async function runOCR() {
     effectCanvas.width   = OCR_REGION_EFFECT.w;
     effectCanvas.height  = OCR_REGION_EFFECT.h;
     effectCanvas.getContext('2d').drawImage(
-      r.canvas,
+      r.fullCanvas,
       OCR_REGION_EFFECT.x, OCR_REGION_EFFECT.y, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h,
       0, 0, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h
     );
+
+    debugLog(`[OCR] index:${r.index} fullCanvas=${r.fullCanvas.width}x${r.fullCanvas.height} → Tesseract呼び出し`);
 
     try {
       const [nameRes, effectRes] = await Promise.all([
