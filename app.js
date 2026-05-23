@@ -486,12 +486,15 @@ async function runOCR() {
       const nameText   = (nameRes.data.text   || '').trim();
       const effectText = (effectRes.data.text || '').trim();
 
+      debugLog(`[OCR] index:${r.index} name="${nameText}" effect="${effectText}"`);
+
       // parseShortcutText()と同じ形式でcurrentBlocksに格納
       // nameLines: カード名・種別行、effectLines: 効果テキスト行
       currentBlocks[r.index] = {
         nameLines:   nameText.split('\n').map(l => l.trim()).filter(l => l),
         effectLines: effectText.split('\n').map(l => l.trim()).filter(l => l),
       };
+      debugLog(`[OCR] currentBlocks[${r.index}] nameLines=${JSON.stringify(currentBlocks[r.index].nameLines)} effectLines=${JSON.stringify(currentBlocks[r.index].effectLines)}`);
     } catch (e) {
       debugLog(`[OCR] エラー index:${r.index} ${e.message}`);
     }
