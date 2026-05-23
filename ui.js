@@ -671,7 +671,6 @@ function hpanelOpen(titleText, sections, currentVal, onSelect) {
   document.getElementById('hpanelSearch').value = '';
   _hpanelRender(sections, '');
   document.getElementById('hpanelOverlay').classList.add('open');
-  document.getElementById('hpanelSearch').focus();
   // オーバーレイクリックで閉じる
   document.getElementById('hpanelOverlay').onclick = e => {
     if (e.target === document.getElementById('hpanelOverlay')) hpanelClose();
