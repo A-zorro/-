@@ -456,25 +456,26 @@ async function runOCR() {
     const r = p2Results[i];
     btn.textContent = `⏳ OCR ${i + 1}/${p2Results.length}枚処理中...`;
 
-    // nameCanvasからHTMLImageElementを再生成して切り抜く
-    // nameCanvasはp2時にprocessFile()で作成済み（x=530,y=140,w=300,h=480）
-    // OCR領域はnameCanvas内の相対座標に変換する
-    // nameCanvas: 元画像のx=530,y=140からの切り抜き
-    // OCR_REGION_NAME(x=580,y=120) → nameCanvas内では x=50, y=0 になる
-    const nameOffX = OCR_REGION_NAME.x - 530;
-    const nameOffY = OCR_REGION_NAME.y - 140;
-    const effectOffX = OCR_REGION_EFFECT.x - 530;
-    const effectOffY = OCR_REGION_EFFECT.y - 140;
-
+    // r.canvas（元画像全体のCanvas）から直接OCR領域を絶対座標で切り抜く
+    // nameCanvas経由だとオフセット計算でマイナス値が発生して範囲外になるため廃止
+    // 更新: 2026-05-23 20:43
     const nameCanvas   = document.createElement('canvas');
     nameCanvas.width   = OCR_REGION_NAME.w;
     nameCanvas.height  = OCR_REGION_NAME.h;
-    nameCanvas.getContext('2d').drawImage(r.nameCanvas, nameOffX, nameOffY, OCR_REGION_NAME.w, OCR_REGION_NAME.h, 0, 0, OCR_REGION_NAME.w, OCR_REGION_NAME.h);
+    nameCanvas.getContext('2d').drawImage(
+      r.canvas,
+      OCR_REGION_NAME.x, OCR_REGION_NAME.y, OCR_REGION_NAME.w, OCR_REGION_NAME.h,
+      0, 0, OCR_REGION_NAME.w, OCR_REGION_NAME.h
+    );
 
     const effectCanvas   = document.createElement('canvas');
     effectCanvas.width   = OCR_REGION_EFFECT.w;
     effectCanvas.height  = OCR_REGION_EFFECT.h;
-    effectCanvas.getContext('2d').drawImage(r.nameCanvas, effectOffX, effectOffY, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h, 0, 0, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h);
+    effectCanvas.getContext('2d').drawImage(
+      r.canvas,
+      OCR_REGION_EFFECT.x, OCR_REGION_EFFECT.y, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h,
+      0, 0, OCR_REGION_EFFECT.w, OCR_REGION_EFFECT.h
+    );
 
     try {
       const [nameRes, effectRes] = await Promise.all([
