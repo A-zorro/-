@@ -721,7 +721,7 @@ function _hpanelRender(sections, query) {
   } else {
     for (const sec of sections) {
       const total = (sec.groups || []).reduce((n, g) => n + Object.keys(g.entries || {}).length, 0);
-      html += `<div class="hpanel-section open" id="hpsec-${sec.id}">`;
+      html += `<div class="hpanel-section" id="hpsec-${sec.id}">`;
       html += `<div class="hpanel-sec-hd" onclick="this.closest('.hpanel-section').classList.toggle('open')">`;
       html += `<span class="hpanel-sec-name">${sec.id} ${sec.name}</span>`;
       html += `<div class="hpanel-sec-meta"><span class="hpanel-sec-count">${total}件</span><span class="hpanel-sec-chev">▼</span></div>`;
