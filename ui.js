@@ -311,8 +311,25 @@ function renderConfirmCards(blocks, preserveItems) {
       const remainder = ocrNorm.replace(baseNorm, '').trim();
       if (remainder.length > 1) {
         let bestKey = null, bestScore = 0;
+        const keywords = window.hiramekiKeywords || {};
         for (const [key, val] of Object.entries(hiramekiEffects)) {
-          const s = similarity(remainder, normalizeOCR(val));
+          // バイグラム類似度スコア
+          const bigramScore = similarity(remainder, normalizeOCR(val));
+
+          // キーワードマッチングスコア
+          // remainderにkeywordsが含まれる数に応じてスコア加算
+          // 1キーワードあたり+0.05、最大+0.3
+          // 更新: 2026-05-24 23:30
+          let keywordScore = 0;
+          const grpKeywords = keywords[key] || [];
+          if (grpKeywords.length > 0) {
+            for (const kw of grpKeywords) {
+              if (remainder.includes(kw)) keywordScore += 0.05;
+            }
+            keywordScore = Math.min(keywordScore, 0.3);
+          }
+
+          const s = bigramScore + keywordScore;
           if (s > bestScore) { bestScore = s; bestKey = key; }
         }
         if (bestKey && bestScore > 0.15) {
