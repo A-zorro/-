@@ -315,7 +315,7 @@ function renderConfirmCards(blocks, preserveItems) {
           const s = similarity(remainder, normalizeOCR(val));
           if (s > bestScore) { bestScore = s; bestKey = key; }
         }
-        if (bestKey && bestScore > 0.2) {
+        if (bestKey && bestScore > 0.15) {
           if (top.isX6) {
             item.kakureEffect = bestKey;
           } else if (hasGod) {
