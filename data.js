@@ -148,13 +148,40 @@ function getBigrams(text) {
   return set;
 }
 
+/*
+ * getUnigrams: 1文字単位で集合を返す
+ * バイグラムより1文字化けに強い。2026-05-25追加
+ */
+function getUnigrams(text) {
+  return new Set(text.split(''));
+}
+
+/*
+ * similarity: バイグラム類似度（現在オフ・ユニグラムに切り替え中）
+ * バイグラムをオフにする場合は similarityUnigram を使用する
+ * 更新: 2026-05-25
+ */
 function similarity(a, b) {
+  // バイグラムオフ・ユニグラムで計算
+  return similarityUnigram(a, b);
+}
+
+function similarityBigram(a, b) {
   const ba = getBigrams(a), bb = getBigrams(b);
   if (ba.size === 0 && bb.size === 0) return 1;
   if (ba.size === 0 || bb.size === 0) return 0;
   let inter = 0;
   for (const g of ba) { if (bb.has(g)) inter++; }
   return inter / (ba.size + bb.size - inter);
+}
+
+function similarityUnigram(a, b) {
+  const ua = getUnigrams(a), ub = getUnigrams(b);
+  if (ua.size === 0 && ub.size === 0) return 1;
+  if (ua.size === 0 || ub.size === 0) return 0;
+  let inter = 0;
+  for (const g of ua) { if (ub.has(g)) inter++; }
+  return inter / (ua.size + ub.size - inter);
 }
 
 // mode引数追加: 2026-05-20 22:47
