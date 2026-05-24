@@ -458,9 +458,9 @@ function cropRegion(img, region) {
  * 更新: 2026-05-24 00:52
  */
 function extractPanelTerms(text) {
-  if (!text || !ocrDict.terms) return [];
+  if (!text || !panelDict.terms) return [];
   const found = new Set();
-  for (const term of ocrDict.terms) {
+  for (const term of panelDict.terms) {
     if (text.includes(term)) found.add(term);
   }
   return Array.from(found);
