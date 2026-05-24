@@ -558,9 +558,10 @@ async function runOCR() {
       // panelTerms: OCR辞典のtermsと照合して抽出した専門用語リスト（ノイズ除去済み）
       // 2026-05-24追加
       currentBlocks[r.index] = {
-        nameLines:   nameText.split('\n').map(l => l.trim()).filter(l => l),
-        effectLines: effectText.split('\n').map(l => l.trim()).filter(l => l),
-        panelTerms:  extractPanelTerms(panelText),
+        nameLines:    nameText.split('\n').map(l => l.trim()).filter(l => l),
+        effectLines:  effectText.split('\n').map(l => l.trim()).filter(l => l),
+        panelRawText: panelText,
+        panelTerms:   extractPanelTerms(panelText),
       };
       debugLog(`[OCR] currentBlocks[${r.index}] nameLines=${JSON.stringify(currentBlocks[r.index].nameLines)} effectLines=${JSON.stringify(currentBlocks[r.index].effectLines)}`);
       debugLog(`[OCR] currentBlocks[${r.index}] panelTerms=${JSON.stringify(currentBlocks[r.index].panelTerms)}`);
