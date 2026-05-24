@@ -284,8 +284,8 @@ function renderConfirmCards(blocks, preserveItems) {
     const ocrKindRaw = block ? block.nameLines.find(l => ['攻撃','スキル','強化'].includes(l.trim())) : null;
     const ocrKind = ocrKindRaw ? ocrKindRaw.trim() : null;
 
-    // 照合実行
-    const matches = matchHirameki(ocrEffect, ocrKind, item.mode);
+    // 照合実行（panelTermsをスコア補正に使用）2026-05-24追加
+    const matches = matchHirameki(ocrEffect, ocrKind, item.mode, panelTerms);
     const top = matches[0] || null;
 
     // 神様（auto-selectionより前に定義）
