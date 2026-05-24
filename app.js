@@ -452,16 +452,19 @@ function cropRegion(img, region) {
 /*
  * extractPanelTerms
  * 引数: text - 右パネルOCR生テキスト
- * 戻り値: string[] - OCR辞典のtermsと一致した専門用語リスト（重複なし）
- * 処理: OCR辞典のtermsリストと照合してノイズを除去し、識別に使える用語だけを返す
- * アイコン付きキーワードの誤認識（例: *@ きき靖）はterms不一致で自動除外される
- * 更新: 2026-05-24 00:52
+ * 戻り値: string[] - panelDictのtermsと一致した専門用語リスト（重複なし）
+ * 処理: 空白を除去してからpanelDictのtermsと照合しノイズを除去する。
+ *       空白混じりのOCR結果（例：「波 3 の 場 合」）にも対応。
+ *       「苦」等の誤認識文字は他の文字で補完できるため空白除去だけで大幅改善。
+ * 更新: 2026-05-24 20:15
  */
 function extractPanelTerms(text) {
   if (!text || !panelDict.terms) return [];
+  const normalized = text.replace(/\s+/g, ''); // 空白を全除去してから照合
   const found = new Set();
   for (const term of panelDict.terms) {
-    if (text.includes(term)) found.add(term);
+    const normalizedTerm = term.replace(/\s+/g, '');
+    if (normalized.includes(normalizedTerm)) found.add(term);
   }
   return Array.from(found);
 }
