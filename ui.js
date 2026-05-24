@@ -1,6 +1,6 @@
 /*
  * ui.js
- * 役割: 各STEPのUI描画とヒラメキ選択パネルの制御。
+ * 役割: 各STEPのUI描画とヒラメキ選択パネルの制御
  * 依存: data.js（hiramekiShinSections・hiramekiKakureSections・hiramekiEffectsを参照）
  *       index.htmlのwindowグローバル変数（results・confirmItems・currentBlocks・
  *       dataReady・patternMode・shortcutRawTextを参照。letではなくwindow宣言が必要な理由は
@@ -274,6 +274,11 @@ function renderConfirmCards(blocks, preserveItems) {
     const r = results[item.resultIdx];
     const block = blocks[r.index];
     const ocrEffect = block ? block.effectLines.join('\n') : '';
+
+    // 右パネルOCR結果（panelTerms）を取得。未取得・P1画像の場合は空配列
+    // extractPanelTerms()でノイズ除去済みの専門用語リスト
+    // 2026-05-24追加
+    const panelTerms = block?.panelTerms || [];
 
     // OCRテキストから種別を抽出
     const ocrKindRaw = block ? block.nameLines.find(l => ['攻撃','スキル','強化'].includes(l.trim())) : null;
