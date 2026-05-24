@@ -53,10 +53,16 @@ async function loadDataFiles() {
     hiramekiShinSections   = shinJson.sections   || [];
     hiramekiKakureSections = kakureJson.sections || [];
     hiramekiEffects = {};
+    // キーワードマッチング用辞書：{ 'H01-001-01': ['アクション','ポイント','獲得'], ... }
+    // グループのkeywordsを全エントリに展開して格納する
+    // 更新: 2026-05-24 23:30
+    window.hiramekiKeywords = {};
     for (const sec of hiramekiShinSections) {
       for (const grp of (sec.groups || [])) {
+        const keywords = grp.keywords || [];
         for (const [id, text] of Object.entries(grp.entries || {})) {
           hiramekiEffects[id] = text;
+          window.hiramekiKeywords[id] = keywords;
         }
       }
     }
