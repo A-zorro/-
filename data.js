@@ -13,20 +13,20 @@
  *   hiramekiEffects        - 後方互換用フラット辞書（IDをキー・テキストを値）
  *   hiramekiShinSections   - 神ヒラメキリストのセクション構造
  *   hiramekiKakureSections - 隠ヒラメキリストのセクション構造（★のみ）
- *   ocrDict                - OCR誤認識対策辞典
- * 更新: 2026-05-20 20:44
+ *   ocrDict                - OCR誤認識対策辞典（カード効果テキスト用）
+ *   panelDict              - 右パネル専用OCR辞典（説明テキスト全文収録）2026-05-24追加
+ * 更新: 2026-05-24 18:05
  */
 
 const DATA_BASE = 'https://raw.githubusercontent.com/A-zorro/-/main/data/';
-let characterData  = {}; // { キャラ名: { cards: {...} } }
-let sharedData     = {}; // { 'K02-恒常コスト1': { cards: {...}, arenaCards: {...} } }
-let hiramekiEffects = {}; // { '001-01': '効果テキスト', ... }（後方互換用・全エントリ）
-let hiramekiShinSections  = []; // 神ヒラメキ用セクション構造
-let hiramekiKakureSections = []; // 隠れヒラメキ用セクション構造（★のみ）
-let ocrDict = { corrections: {}, terms: [] };
+let characterData  = {};
+let sharedData     = {};
+let hiramekiEffects = {};
+let hiramekiShinSections  = [];
+let hiramekiKakureSections = [];
+let ocrDict  = { corrections: {}, terms: [] };
+let panelDict = { terms: [] }; // 右パネル専用OCR辞典 2026-05-24追加
 
-// デバッグログをdebugPanelGlobal（常時表示）とdebugPanel（STEP4内）の両方に出力する
-// 更新: 2026-05-20 20:44
 function debugLog(msg) {
   ['debugPanelGlobal', 'debugPanel'].forEach(id => {
     const panel = document.getElementById(id);
@@ -39,19 +39,19 @@ async function loadDataFiles() {
   debugLog('[start] loadDataFiles開始');
   try {
     debugLog('[fetch] manifest / ヒラメキリスト / OCR辞典 fetch開始');
-    const [manifestRes, shinRes, kakureRes, ocrRes] = await Promise.all([
+    const [manifestRes, shinRes, kakureRes, ocrRes, panelDictRes] = await Promise.all([
       fetch(DATA_BASE + 'manifest.json'),
       fetch(DATA_BASE + encodeURIComponent('神ヒラメキリスト.json')),
       fetch(DATA_BASE + encodeURIComponent('隠ヒラメキリスト.json')),
       fetch(DATA_BASE + encodeURIComponent('OCR辞典.json')),
+      fetch(DATA_BASE + encodeURIComponent('OCR辞典-panel.json')),
     ]);
-    debugLog(`[fetch] manifest: ${manifestRes.status} / shin: ${shinRes.status} / kakure: ${kakureRes.status} / ocr: ${ocrRes.status}`);
+    debugLog(`[fetch] manifest: ${manifestRes.status} / shin: ${shinRes.status} / kakure: ${kakureRes.status} / ocr: ${ocrRes.status} / panel: ${panelDictRes.status}`);
     const manifest = await manifestRes.json();
     const shinJson   = shinRes.ok   ? await shinRes.json()   : { sections: [] };
     const kakureJson = kakureRes.ok ? await kakureRes.json() : { sections: [] };
     hiramekiShinSections   = shinJson.sections   || [];
     hiramekiKakureSections = kakureJson.sections || [];
-    // 後方互換：全エントリをフラット辞書にも展開
     hiramekiEffects = {};
     for (const sec of hiramekiShinSections) {
       for (const grp of (sec.groups || [])) {
@@ -60,8 +60,10 @@ async function loadDataFiles() {
         }
       }
     }
-    ocrDict = await ocrRes.json();
-    // shared manifestをui.jsから参照できるようwindowに保存 2026-05-20 23:44
+    ocrDict   = await ocrRes.json();
+    panelDict = panelDictRes.ok ? await panelDictRes.json() : { terms: [] };
+    debugLog(`[panelDict] terms数: ${panelDict.terms.length}`);
+
     window._sharedManifest = (manifest.shared || []).map(e =>
       (typeof e === 'string') ? { id: e, name: e } : e
     );
@@ -80,10 +82,7 @@ async function loadDataFiles() {
       }
     }));
 
-    // shared JSON読み込み
     if (manifest.shared && manifest.shared.length > 0) {
-      // キャラ版と同様にid/name形式に対応（文字列の場合は後方互換）
-      // 更新: 2026-05-20 23:44
       await Promise.all(manifest.shared.map(async entry => {
         const id   = (typeof entry === 'string') ? entry : entry.id;
         const url = DATA_BASE + encodeURIComponent(id + '.json');
@@ -105,31 +104,21 @@ async function loadDataFiles() {
     debugLog(`[完了] キャラ: ${Object.keys(characterData).length}人 / 共用: ${Object.keys(sharedData).length}ファイル`);
     dataReady = true;
 
-    // ローディング表示を消す
     const loadingMsg = document.getElementById('dataLoadingMsg');
     if (loadingMsg) loadingMsg.style.display = 'none';
 
-    // JSON読み込み完了後にSTEP4を自動レンダリングする。
-    // 画像選択済み（results.length > 0）またはショートカットtxt読み込み済みの場合に実行。
-    // これにより「画像のみ→STEP4表示」「txt先行読み込み→JSON完了後にSTEP4表示」の
-    // 両方のケースをカバーする。
-    // 更新: 2026-05-20 20:44
     if (results.length > 0 || Object.keys(currentBlocks).length > 0) {
       renderConfirmCards(currentBlocks, false);
     }
   } catch (e) {
     debugLog(`[ERROR] ${e.message}\n${e.stack}`);
     console.warn('データ読み込みエラー（照合機能は限定動作）:', e);
-    dataReady = true; // エラー時もフラグを立てて処理を止めない
+    dataReady = true;
     const loadingMsg = document.getElementById('dataLoadingMsg');
     if (loadingMsg) loadingMsg.style.display = 'none';
   }
 }
 loadDataFiles();
-
-/* ============================================================
-   OCR正規化・照合ロジック
-============================================================ */
 
 /* ============================================================
    OCR正規化・照合ロジック
@@ -140,14 +129,9 @@ loadDataFiles();
 ============================================================ */
 function normalizeOCR(text) {
   let result = text || '';
-  // 誤認識テーブルで直接置換
   for (const [wrong, correct] of Object.entries(ocrDict.corrections || {})) {
     result = result.replaceAll(wrong, correct);
   }
-  // 句読点（、）を除外して照合する
-  // 理由：ゲーム画像に「、」がない箇所にClaudeが勝手に補完したテキストが
-  // JSONやPDFに混入している可能性があるため、比較時のみ除外して精度を保つ。
-  // 記録テキスト自体は変更しない。
   result = result.replace(/、/g, '');
   return result.replace(/\s+/g, '');
 }
@@ -167,16 +151,13 @@ function similarity(a, b) {
   return inter / (ba.size + bb.size - inter);
 }
 
-// mode引数追加: 2026-05-20 22:47 カードごとのモード対応のためglobal cardModeから引数に変更
+// mode引数追加: 2026-05-20 22:47
 function matchHirameki(ocrEffectText, ocrKind, mode) {
   const norm = normalizeOCR(ocrEffectText);
   const candidates = [];
-
-  // ヒラメキリストの全効果テキストリスト（組み合わせ用）
   const effectValues = Object.values(hiramekiEffects);
 
   if (mode === 'shared') {
-    // ── 共用版：sharedDataのbaseEffectと照合 ──
     for (const [fileName, fileData] of Object.entries(sharedData)) {
       for (const [cardName, card] of Object.entries(fileData.cards || {})) {
         const baseNorm = normalizeOCR(card.baseEffect);
@@ -202,7 +183,6 @@ function matchHirameki(ocrEffectText, ocrKind, mode) {
       }
     }
   } else {
-    // ── キャラ版：characterDataのhiramekiと照合 ──
     for (const [charName, charData] of Object.entries(characterData)) {
       if (!charData.cards) continue;
       for (const [cardKey, card] of Object.entries(charData.cards)) {
@@ -212,24 +192,15 @@ function matchHirameki(ocrEffectText, ocrKind, mode) {
           if (!h) continue;
           const hiramekiKind = h.kind || card.kind;
           const baseNorm = normalizeOCR(h.effect);
-
-          // ① ベース効果単体のスコア
           let bestScore = similarity(norm, baseNorm);
-
-          // ② ベース効果＋追加効果の組み合わせで最高スコアを探す
           for (const addEffect of effectValues) {
             const combined = normalizeOCR(h.effect + addEffect);
             const s = similarity(norm, combined);
             if (s > bestScore) bestScore = s;
           }
-
-          // 種別一致ボーナス
           if (ocrKind && hiramekiKind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-
           candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score: bestScore, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
         }
-
-        // X-6：基本効果と比較
         const baseNorm = normalizeOCR(card.baseEffect);
         let bestX6 = similarity(norm, baseNorm);
         for (const addEffect of effectValues) {
@@ -244,4 +215,3 @@ function matchHirameki(ocrEffectText, ocrKind, mode) {
   }
   return candidates.sort((a, b) => b.score - a.score);
 }
-
