@@ -437,6 +437,7 @@ function resetTool() {
 // ショートカットアプリと同じ座標を使用
 const OCR_REGION_NAME   = { x: 580, y: 120, w: 255, h: 100 }; // カード名・種別
 const OCR_REGION_EFFECT = { x: 517, y: 300, w: 318, h: 320 }; // カード効果・ヒラメキ
+const OCR_REGION_PANEL = { x: 864, y:  94, w: 411, h: 542 }; // 右パネル（キーワード欄）2026-05-24追加
 
 // 画像から指定領域を切り抜いてCanvasを返す
 // region: { x, y, w, h }（絶対座標）
@@ -446,6 +447,23 @@ function cropRegion(img, region) {
   c.width = region.w; c.height = region.h;
   c.getContext('2d').drawImage(img, region.x, region.y, region.w, region.h, 0, 0, region.w, region.h);
   return c;
+}
+
+/*
+ * extractPanelTerms
+ * 引数: text - 右パネルOCR生テキスト
+ * 戻り値: string[] - OCR辞典のtermsと一致した専門用語リスト（重複なし）
+ * 処理: OCR辞典のtermsリストと照合してノイズを除去し、識別に使える用語だけを返す
+ * アイコン付きキーワードの誤認識（例: *@ きき靖）はterms不一致で自動除外される
+ * 更新: 2026-05-24 00:52
+ */
+function extractPanelTerms(text) {
+  if (!text || !ocrDict.terms) return [];
+  const found = new Set();
+  for (const term of ocrDict.terms) {
+    if (text.includes(term)) found.add(term);
+  }
+  return Array.from(found);
 }
 
 // 全結果画像に対してOCRを実行し、currentBlocksに格納してSTEP4を再描画する
@@ -511,23 +529,41 @@ async function runOCR() {
     debugLog(`[OCR] index:${r.index} fullCanvas=${r.fullCanvas.width}x${r.fullCanvas.height} → Tesseract呼び出し`);
 
     try {
-      const [nameRes, effectRes] = await Promise.all([
+      // 右パネル（キーワード欄）のクロップCanvasを生成
+      // マスク処理なし（マスクで識別に有益な情報が欠落することが検証で判明済み）
+      // 2026-05-24追加
+      const panelCanvas   = document.createElement('canvas');
+      panelCanvas.width   = OCR_REGION_PANEL.w;
+      panelCanvas.height  = OCR_REGION_PANEL.h;
+      panelCanvas.getContext('2d').drawImage(
+        r.fullCanvas,
+        OCR_REGION_PANEL.x, OCR_REGION_PANEL.y, OCR_REGION_PANEL.w, OCR_REGION_PANEL.h,
+        0, 0, OCR_REGION_PANEL.w, OCR_REGION_PANEL.h
+      );
+
+      const [nameRes, effectRes, panelRes] = await Promise.all([
         Tesseract.recognize(nameCanvas,   'jpn', { tessedit_pageseg_mode: '6' }),
         Tesseract.recognize(effectCanvas, 'jpn', { tessedit_pageseg_mode: '6' }),
+        Tesseract.recognize(panelCanvas,  'jpn', { tessedit_pageseg_mode: '6' }),
       ]);
 
       const nameText   = (nameRes.data.text   || '').trim();
       const effectText = (effectRes.data.text || '').trim();
+      const panelText  = (panelRes.data.text  || '').trim();
 
       debugLog(`[OCR] index:${r.index} name="${nameText}" effect="${effectText}"`);
+      debugLog(`[OCR] index:${r.index} panel="${panelText}"`);
 
       // parseShortcutText()と同じ形式でcurrentBlocksに格納
-      // nameLines: カード名・種別行、effectLines: 効果テキスト行
+      // panelTerms: OCR辞典のtermsと照合して抽出した専門用語リスト（ノイズ除去済み）
+      // 2026-05-24追加
       currentBlocks[r.index] = {
         nameLines:   nameText.split('\n').map(l => l.trim()).filter(l => l),
         effectLines: effectText.split('\n').map(l => l.trim()).filter(l => l),
+        panelTerms:  extractPanelTerms(panelText),
       };
       debugLog(`[OCR] currentBlocks[${r.index}] nameLines=${JSON.stringify(currentBlocks[r.index].nameLines)} effectLines=${JSON.stringify(currentBlocks[r.index].effectLines)}`);
+      debugLog(`[OCR] currentBlocks[${r.index}] panelTerms=${JSON.stringify(currentBlocks[r.index].panelTerms)}`);
     } catch (e) {
       debugLog(`[OCR] エラー index:${r.index} ${e.message}`);
     }
