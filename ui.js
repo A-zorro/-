@@ -605,13 +605,18 @@ function renderConfirmCards(blocks, preserveItems) {
     ocrToggle.textContent = '▶ OCR生データ（タップで展開）';
     const ocrContent = document.createElement('div');
     ocrContent.className = 'match-ocr-content';
-    // 効果テキスト + 右パネル読み取り結果を表示
-    // panelTermsが空の場合は「（未取得）」と表示（P1画像・OCR未実行の場合）
-    // 2026-05-24追加
-    const panelLine = panelTerms.length > 0
-      ? '【右パネル】' + panelTerms.join(' / ')
-      : '【右パネル】（未取得）';
-    ocrContent.textContent = (ocrEffect || '（テキストなし）') + '\n\n' + panelLine;
+    // 効果テキスト・右パネル生テキスト・抽出語を表示
+    // panelRawText: OCR生テキストそのまま（何が読めているか確認用）
+    // panelTerms: panelDictと照合して抽出した専門用語リスト
+    // 2026-05-24更新
+    const panelRawText = block?.panelRawText || '';
+    const panelRawLine = panelRawText
+      ? '【右パネル生テキスト】\n' + panelRawText
+      : '【右パネル生テキスト】（未取得）';
+    const panelTermsLine = panelTerms.length > 0
+      ? '【右パネル抽出語】' + panelTerms.join(' / ')
+      : '【右パネル抽出語】（なし）';
+    ocrContent.textContent = (ocrEffect || '（テキストなし）') + '\n\n' + panelRawLine + '\n\n' + panelTermsLine;
     ocrToggle.onclick = () => {
       const open = ocrContent.style.display === 'block';
       ocrContent.style.display = open ? 'none' : 'block';
