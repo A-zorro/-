@@ -605,7 +605,13 @@ function renderConfirmCards(blocks, preserveItems) {
     ocrToggle.textContent = '▶ OCR生データ（タップで展開）';
     const ocrContent = document.createElement('div');
     ocrContent.className = 'match-ocr-content';
-    ocrContent.textContent = ocrEffect || '（テキストなし）';
+    // 効果テキスト + 右パネル読み取り結果を表示
+    // panelTermsが空の場合は「（未取得）」と表示（P1画像・OCR未実行の場合）
+    // 2026-05-24追加
+    const panelLine = panelTerms.length > 0
+      ? '【右パネル】' + panelTerms.join(' / ')
+      : '【右パネル】（未取得）';
+    ocrContent.textContent = (ocrEffect || '（テキストなし）') + '\n\n' + panelLine;
     ocrToggle.onclick = () => {
       const open = ocrContent.style.display === 'block';
       ocrContent.style.display = open ? 'none' : 'block';
