@@ -437,7 +437,11 @@ function resetTool() {
 // ショートカットアプリと同じ座標を使用
 const OCR_REGION_NAME   = { x: 580, y: 120, w: 255, h: 100 }; // カード名・種別
 const OCR_REGION_EFFECT = { x: 517, y: 300, w: 318, h: 320 }; // カード効果・ヒラメキ
-const OCR_REGION_PANEL = { x: 864, y:  94, w: 411, h: 542 }; // 右パネル（キーワード欄）2026-05-24追加
+// OCR_REGION_PANEL は無効化済み（2026-05-25）
+// 理由: パネル領域のTesseract OCRは処理が重い割に精度が不足しており、
+//       ヒラメキ照合精度の改善に貢献しなかった。
+//       remainder抽出の根本問題が解決されるまで再有効化しない。
+// const OCR_REGION_PANEL = { x: 864, y:  94, w: 411, h: 542 };
 
 // 画像から指定領域を切り抜いてCanvasを返す
 // region: { x, y, w, h }（絶対座標）
@@ -449,25 +453,20 @@ function cropRegion(img, region) {
   return c;
 }
 
-/*
- * extractPanelTerms
- * 引数: text - 右パネルOCR生テキスト
- * 戻り値: string[] - panelDictのtermsと一致した専門用語リスト（重複なし）
- * 処理: 空白を除去してからpanelDictのtermsと照合しノイズを除去する。
- *       空白混じりのOCR結果（例：「波 3 の 場 合」）にも対応。
- *       「苦」等の誤認識文字は他の文字で補完できるため空白除去だけで大幅改善。
- * 更新: 2026-05-24 20:15
- */
-function extractPanelTerms(text) {
-  if (!text || !panelDict.terms) return [];
-  const normalized = text.replace(/\s+/g, ''); // 空白を全除去してから照合
-  const found = new Set();
-  for (const term of panelDict.terms) {
-    const normalizedTerm = term.replace(/\s+/g, '');
-    if (normalized.includes(normalizedTerm)) found.add(term);
-  }
-  return Array.from(found);
-}
+// extractPanelTerms は無効化済み（2026-05-25）
+// 理由: パネルOCR無効化に伴い不要。
+//       OCRで読んだ右パネルテキストをpanelDictと照合して用語を抽出していたが、
+//       パネル照合方式がヒラメキ識別精度の改善に貢献しなかったため停止。
+// function extractPanelTerms(text) {
+//   if (!text || !panelDict.terms) return [];
+//   const normalized = text.replace(/\s+/g, '');
+//   const found = new Set();
+//   for (const term of panelDict.terms) {
+//     const normalizedTerm = term.replace(/\s+/g, '');
+//     if (normalized.includes(normalizedTerm)) found.add(term);
+//   }
+//   return Array.from(found);
+// }
 
 // 全結果画像に対してOCRを実行し、currentBlocksに格納してSTEP4を再描画する
 // p2パターン以外の画像はスキップする
@@ -532,42 +531,31 @@ async function runOCR() {
     debugLog(`[OCR] index:${r.index} fullCanvas=${r.fullCanvas.width}x${r.fullCanvas.height} → Tesseract呼び出し`);
 
     try {
-      // 右パネル（キーワード欄）のクロップCanvasを生成
-      // マスク処理なし（マスクで識別に有益な情報が欠落することが検証で判明済み）
-      // 2026-05-24追加
-      const panelCanvas   = document.createElement('canvas');
-      panelCanvas.width   = OCR_REGION_PANEL.w;
-      panelCanvas.height  = OCR_REGION_PANEL.h;
-      panelCanvas.getContext('2d').drawImage(
-        r.fullCanvas,
-        OCR_REGION_PANEL.x, OCR_REGION_PANEL.y, OCR_REGION_PANEL.w, OCR_REGION_PANEL.h,
-        0, 0, OCR_REGION_PANEL.w, OCR_REGION_PANEL.h
-      );
+      // パネルOCR処理は無効化済み（2026-05-25）
+      // 理由: 処理が重く精度不足。remainder抽出の根本問題が解決されるまで再有効化しない。
+      // 以下のコードでパネルCanvas生成・Tesseract呼び出し・panelTerms格納を行っていた。
+      // const panelCanvas = document.createElement('canvas');
+      // panelCanvas.width = OCR_REGION_PANEL.w; panelCanvas.height = OCR_REGION_PANEL.h;
+      // panelCanvas.getContext('2d').drawImage(r.fullCanvas, ...OCR_REGION_PANEL...);
+      // const [nameRes, effectRes, panelRes] = await Promise.all([...panelCanvas...]);
+      // const panelText = (panelRes.data.text || '').trim();
 
-      const [nameRes, effectRes, panelRes] = await Promise.all([
+      const [nameRes, effectRes] = await Promise.all([
         Tesseract.recognize(nameCanvas,   'jpn', { tessedit_pageseg_mode: '6' }),
         Tesseract.recognize(effectCanvas, 'jpn', { tessedit_pageseg_mode: '6' }),
-        Tesseract.recognize(panelCanvas,  'jpn', { tessedit_pageseg_mode: '6' }),
       ]);
 
       const nameText   = (nameRes.data.text   || '').trim();
       const effectText = (effectRes.data.text || '').trim();
-      const panelText  = (panelRes.data.text  || '').trim();
 
       debugLog(`[OCR] index:${r.index} name="${nameText}" effect="${effectText}"`);
-      debugLog(`[OCR] index:${r.index} panel="${panelText}"`);
 
-      // parseShortcutText()と同じ形式でcurrentBlocksに格納
-      // panelTerms: OCR辞典のtermsと照合して抽出した専門用語リスト（ノイズ除去済み）
-      // 2026-05-24追加
       currentBlocks[r.index] = {
-        nameLines:    nameText.split('\n').map(l => l.trim()).filter(l => l),
-        effectLines:  effectText.split('\n').map(l => l.trim()).filter(l => l),
-        panelRawText: panelText,
-        panelTerms:   extractPanelTerms(panelText),
+        nameLines:   nameText.split('\n').map(l => l.trim()).filter(l => l),
+        effectLines: effectText.split('\n').map(l => l.trim()).filter(l => l),
+        // panelRawText・panelTermsはパネルOCR無効化に伴い削除（2026-05-25）
       };
       debugLog(`[OCR] currentBlocks[${r.index}] nameLines=${JSON.stringify(currentBlocks[r.index].nameLines)} effectLines=${JSON.stringify(currentBlocks[r.index].effectLines)}`);
-      debugLog(`[OCR] currentBlocks[${r.index}] panelTerms=${JSON.stringify(currentBlocks[r.index].panelTerms)}`);
     } catch (e) {
       debugLog(`[OCR] エラー index:${r.index} ${e.message}`);
     }
