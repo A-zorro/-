@@ -185,36 +185,18 @@ function similarityUnigram(a, b) {
 }
 
 // mode引数追加: 2026-05-20 22:47
-// panelTerms引数追加: 2026-05-24 右パネル抽出語によるスコア補正
-function matchHirameki(ocrEffectText, ocrKind, mode, panelTerms) {
+// panelTerms引数は無効化済み（2026-05-25）
+// 理由: パネルOCR停止に伴いpanelTermsが常に空になるため不要。
+//       calcPanelBonusによるスコア補正もヒラメキ照合精度の改善に貢献しなかった。
+//       remainder抽出の根本問題が解決されるまで再有効化しない。
+function matchHirameki(ocrEffectText, ocrKind, mode) {
   const norm = normalizeOCR(ocrEffectText);
   const candidates = [];
   const effectValues = Object.values(hiramekiEffects);
 
-  /*
-   * calcPanelBonus
-   * 右パネル抽出語（panelTerms）と候補カードのpanelフィールドを照合してスコアを加算する。
-   * panelフィールドが未登録の場合はフォールバックとして効果テキストと照合する。
-   * 1用語あたり+0.05、最大+0.2。panelTermsが空の場合は補正なし。
-   * 更新: 2026-05-24 21:30
-   */
-  function calcPanelBonus(cardPanel, effectText) {
-    if (!panelTerms || !panelTerms.length) return 0;
-    let bonus = 0;
-    if (cardPanel && cardPanel.length > 0) {
-      // panelフィールドが登録済みの場合：panelTermsとpanelフィールドの一致数でスコア加算
-      for (const term of panelTerms) {
-        if (cardPanel.includes(term)) bonus += 0.05;
-      }
-    } else {
-      // panelフィールド未登録の場合：効果テキストにフォールバック
-      const normEffect = effectText.replace(/\s+/g, '');
-      for (const term of panelTerms) {
-        if (normEffect.includes(term.replace(/\s+/g, ''))) bonus += 0.05;
-      }
-    }
-    return Math.min(bonus, 0.2);
-  }
+  // calcPanelBonus は無効化済み（2026-05-25）
+  // 理由: パネルOCR停止に伴い不要。スコア補正効果も限定的だった。
+  // function calcPanelBonus(cardPanel, effectText) { ... }
 
   if (mode === 'shared') {
     for (const [fileName, fileData] of Object.entries(sharedData)) {
@@ -227,7 +209,7 @@ function matchHirameki(ocrEffectText, ocrKind, mode, panelTerms) {
           if (s > bestScore) bestScore = s;
         }
         if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-        bestScore = Math.min(1, bestScore + calcPanelBonus(card.panel || [], card.baseEffect));
+        // bestScore = Math.min(1, bestScore + calcPanelBonus(...)); // パネルボーナス無効化済み（2026-05-25）
         candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
       }
       for (const [cardName, card] of Object.entries(fileData.arenaCards || {})) {
@@ -239,7 +221,7 @@ function matchHirameki(ocrEffectText, ocrKind, mode, panelTerms) {
           if (s > bestScore) bestScore = s;
         }
         if (ocrKind && card.kind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-        bestScore = Math.min(1, bestScore + calcPanelBonus(card.panel || [], card.baseEffect));
+        // bestScore = Math.min(1, bestScore + calcPanelBonus(...)); // パネルボーナス無効化済み（2026-05-25）
         candidates.push({ charName: fileName, cardKey: cardName, cardName: card.name, hiramekiNum: null, score: bestScore, isX6: false, effect: card.baseEffect, cost: card.cost, kind: card.kind });
       }
     }
@@ -271,7 +253,7 @@ function matchHirameki(ocrEffectText, ocrKind, mode, panelTerms) {
           if (s > bestX6) bestX6 = s;
         }
         if (ocrKind && card.kind === ocrKind) bestX6 = Math.min(1, bestX6 + 0.1);
-        bestX6 = Math.min(1, bestX6 + calcPanelBonus(card.panel || [], card.baseEffect));
+        // bestX6 = Math.min(1, bestX6 + calcPanelBonus(...)); // パネルボーナス無効化済み（2026-05-25）
         candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: 6, score: bestX6, isX6: true, effect: card.baseEffect, cost: card.cost, kind: card.kind });
       }
     }
