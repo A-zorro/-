@@ -275,17 +275,15 @@ function renderConfirmCards(blocks, preserveItems) {
     const block = blocks[r.index];
     const ocrEffect = block ? block.effectLines.join('\n') : '';
 
-    // 右パネルOCR結果（panelTerms）を取得。未取得・P1画像の場合は空配列
-    // extractPanelTerms()でノイズ除去済みの専門用語リスト
-    // 2026-05-24追加
-    const panelTerms = block?.panelTerms || [];
+    // panelTermsはパネルOCR無効化に伴い常に空（2026-05-25）
+    const panelTerms = [];
 
     // OCRテキストから種別を抽出
     const ocrKindRaw = block ? block.nameLines.find(l => ['攻撃','スキル','強化'].includes(l.trim())) : null;
     const ocrKind = ocrKindRaw ? ocrKindRaw.trim() : null;
 
-    // 照合実行（panelTermsをスコア補正に使用）2026-05-24追加
-    const matches = matchHirameki(ocrEffect, ocrKind, item.mode, panelTerms);
+    // 照合実行
+    const matches = matchHirameki(ocrEffect, ocrKind, item.mode);
     const top = matches[0] || null;
 
     // 神様（auto-selectionより前に定義）
@@ -311,25 +309,12 @@ function renderConfirmCards(blocks, preserveItems) {
       const remainder = ocrNorm.replace(baseNorm, '').trim();
       if (remainder.length > 1) {
         let bestKey = null, bestScore = 0;
-        const keywords = window.hiramekiKeywords || {};
+        // キーワードマッチングスコアは無効化済み（2026-05-25）
+        // 理由: remainder品質に依存するため、余り抽出が失敗すると効果がない。
+        //       remainder抽出の根本問題が解決されるまで再有効化しない。
+        // const keywords = window.hiramekiKeywords || {};
         for (const [key, val] of Object.entries(hiramekiEffects)) {
-          // バイグラム類似度スコア
-          const bigramScore = similarity(remainder, normalizeOCR(val));
-
-          // キーワードマッチングスコア
-          // remainderにkeywordsが含まれる数に応じてスコア加算
-          // 1キーワードあたり+0.05、最大+0.3
-          // 更新: 2026-05-24 23:30
-          let keywordScore = 0;
-          const grpKeywords = keywords[key] || [];
-          if (grpKeywords.length > 0) {
-            for (const kw of grpKeywords) {
-              if (remainder.includes(kw)) keywordScore += 0.05;
-            }
-            keywordScore = Math.min(keywordScore, 0.3);
-          }
-
-          const s = bigramScore + keywordScore;
+          const s = similarity(remainder, normalizeOCR(val));
           if (s > bestScore) { bestScore = s; bestKey = key; }
         }
         if (bestKey && bestScore > 0.15) {
@@ -622,18 +607,10 @@ function renderConfirmCards(blocks, preserveItems) {
     ocrToggle.textContent = '▶ OCR生データ（タップで展開）';
     const ocrContent = document.createElement('div');
     ocrContent.className = 'match-ocr-content';
-    // 効果テキスト・右パネル生テキスト・抽出語を表示
-    // panelRawText: OCR生テキストそのまま（何が読めているか確認用）
-    // panelTerms: panelDictと照合して抽出した専門用語リスト
-    // 2026-05-24更新
-    const panelRawText = block?.panelRawText || '';
-    const panelRawLine = panelRawText
-      ? '【右パネル生テキスト】\n' + panelRawText
-      : '【右パネル生テキスト】（未取得）';
-    const panelTermsLine = panelTerms.length > 0
-      ? '【右パネル抽出語】' + panelTerms.join(' / ')
-      : '【右パネル抽出語】（なし）';
-    ocrContent.textContent = (ocrEffect || '（テキストなし）') + '\n\n' + panelRawLine + '\n\n' + panelTermsLine;
+    // 右パネル生テキスト・抽出語表示はパネルOCR無効化に伴い削除（2026-05-25）
+    // 以前は panelRawText・panelTermsLine を ocrContent に表示していたが、
+    // パネルOCR停止により常に「未取得」「なし」になるため表示から除去。
+    ocrContent.textContent = (ocrEffect || '（テキストなし）');
     ocrToggle.onclick = () => {
       const open = ocrContent.style.display === 'block';
       ocrContent.style.display = open ? 'none' : 'block';
