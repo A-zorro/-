@@ -275,8 +275,9 @@ function renderConfirmCards(blocks, preserveItems) {
     const block = blocks[r.index];
     const ocrEffect = block ? block.effectLines.join('\n') : '';
 
-    // panelTermsはパネルOCR無効化に伴い常に空（2026-05-25）
-    const panelTerms = [];
+    // panelTermsはパネルOCR無効化に伴い無効化済み（2026-05-25）
+    // ReferenceError防止のため空配列として残す（削除不可）
+    const panelTerms = []; // 無効・使用箇所なし
 
     // OCRテキストから種別を抽出
     const ocrKindRaw = block ? block.nameLines.find(l => ['攻撃','スキル','強化'].includes(l.trim())) : null;
