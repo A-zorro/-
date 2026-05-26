@@ -25,7 +25,7 @@ let hiramekiEffects = {};
 let hiramekiShinSections  = [];
 let hiramekiKakureSections = [];
 let ocrDict  = { corrections: {}, terms: [] };
-let panelDict = { terms: [] }; // 右パネル専用OCR辞典 2026-05-24追加
+let panelDict = { terms: [] }; // 右パネル専用OCR辞典 2026-05-24追加・2026-05-25無効化（fetchもコメントアウト済み）
 
 function debugLog(msg) {
   ['debugPanelGlobal', 'debugPanel'].forEach(id => {
@@ -39,36 +39,36 @@ async function loadDataFiles() {
   debugLog('[start] loadDataFiles開始');
   try {
     debugLog('[fetch] manifest / ヒラメキリスト / OCR辞典 fetch開始');
-    const [manifestRes, shinRes, kakureRes, ocrRes, panelDictRes] = await Promise.all([
+    // OCR辞典-panel.jsonのfetchは無効化済み（2026-05-25）
+    // 理由: パネルOCR停止に伴いpanelDictが不要になったため。
+    const [manifestRes, shinRes, kakureRes, ocrRes] = await Promise.all([
       fetch(DATA_BASE + 'manifest.json'),
       fetch(DATA_BASE + encodeURIComponent('神ヒラメキリスト.json')),
       fetch(DATA_BASE + encodeURIComponent('隠ヒラメキリスト.json')),
       fetch(DATA_BASE + encodeURIComponent('OCR辞典.json')),
-      fetch(DATA_BASE + encodeURIComponent('OCR辞典-panel.json')),
     ]);
-    debugLog(`[fetch] manifest: ${manifestRes.status} / shin: ${shinRes.status} / kakure: ${kakureRes.status} / ocr: ${ocrRes.status} / panel: ${panelDictRes.status}`);
+    debugLog(`[fetch] manifest: ${manifestRes.status} / shin: ${shinRes.status} / kakure: ${kakureRes.status} / ocr: ${ocrRes.status}`);
     const manifest = await manifestRes.json();
     const shinJson   = shinRes.ok   ? await shinRes.json()   : { sections: [] };
     const kakureJson = kakureRes.ok ? await kakureRes.json() : { sections: [] };
     hiramekiShinSections   = shinJson.sections   || [];
     hiramekiKakureSections = kakureJson.sections || [];
     hiramekiEffects = {};
-    // キーワードマッチング用辞書：{ 'H01-001-01': ['アクション','ポイント','獲得'], ... }
-    // グループのkeywordsを全エントリに展開して格納する
-    // 更新: 2026-05-24 23:30
-    window.hiramekiKeywords = {};
+    // hiramekiKeywordsの生成は無効化済み（2026-05-25）
+    // 理由: キーワードマッチングスコアがremainder品質に依存するため停止。
+    //       remainder抽出の根本問題が解決されるまで再有効化しない。
+    // window.hiramekiKeywords = {};
     for (const sec of hiramekiShinSections) {
       for (const grp of (sec.groups || [])) {
-        const keywords = grp.keywords || [];
         for (const [id, text] of Object.entries(grp.entries || {})) {
           hiramekiEffects[id] = text;
-          window.hiramekiKeywords[id] = keywords;
+          // window.hiramekiKeywords[id] = grp.keywords || [];
         }
       }
     }
     ocrDict   = await ocrRes.json();
-    panelDict = panelDictRes.ok ? await panelDictRes.json() : { terms: [] };
-    debugLog(`[panelDict] terms数: ${panelDict.terms.length}`);
+    // panelDictのfetch格納は無効化済み（2026-05-25）
+    // panelDict = panelDictRes.ok ? await panelDictRes.json() : { terms: [] };
 
     window._sharedManifest = (manifest.shared || []).map(e =>
       (typeof e === 'string') ? { id: e, name: e } : e
@@ -242,7 +242,7 @@ function matchHirameki(ocrEffectText, ocrKind, mode) {
             if (s > bestScore) bestScore = s;
           }
           if (ocrKind && hiramekiKind === ocrKind) bestScore = Math.min(1, bestScore + 0.1);
-          bestScore = Math.min(1, bestScore + calcPanelBonus(h.panel || [], h.effect));
+          // bestScore = Math.min(1, bestScore + calcPanelBonus(h.panel || [], h.effect)); // パネルボーナス無効化済み（2026-05-25）
           candidates.push({ charName, cardKey, cardName: card.name, hiramekiNum: n, score: bestScore, isX6: false, effect: h.effect, cost: h.cost, kind: hiramekiKind });
         }
         const baseNorm = normalizeOCR(card.baseEffect);
